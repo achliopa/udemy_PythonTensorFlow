@@ -214,3 +214,94 @@ print(sess.run(hello))
 * see the output (in rt reduction of loss)
 * we see the progress of perfecting the classification as we add layers
 * we see in rt lines between the nerurons doing work (weight beign adjusted)
+* also we can see the bias as a dot next top to the neurons
+* we can modify the model adding layers and nurons and see the loss getting smaller
+* we choos ethe spiral dataset. the model is struggling to train on it. to improve it
+	* add hidden layers
+	* change activation fuynction to relu and do a 5* 6 nurons and 4 in output 
+	* we get a good output
+* we max out ^ * 8
+* if we put learnign rate to 10 it learns faster but output is like
+
+### Lecture 20 - Manual Creation of neural Network Part 1
+
+* we will mimic tensorflow coding the classses and functions needed in a neural network ourselves
+* we ll start with OOP in python and the *super()* keywords
+* we create a simple class and define methods in it (also __init__ constructor)
+```
+class SimpleClass():
+	def __init__(self,name=''):
+		print('hello'+name)
+	def yell(self):
+		print('YELLING')
+```
+* we also set a string literal `s="world` of type str and see its biult in methods
+* to create an instance of a class we write `x = SimpleClass()` this call executes the __init__ method (constructor)
+* if I write `x` i see the address of the specific object
+* `x.yell()` >>YELLING
+* we write a child class of SimpleClass which inherits it
+```
+class ExtendedClass(SimpleClass):
+	def __init__(self):
+		print('EXTEND!')
+```
+* we instantiate it `y = ExtendedClass()`
+* y instance inherits all properties of its parent class `y.yell()` >> YELLING
+* if we want the parent class constructor to exectute when we instantiate the child we write in its constructor `super().__init__()`. we can pass args in
+```
+class ExtendedClass(SimpleClass):
+	def __init__(self):
+		super().__init__('Jose')
+		print('EXTEND!')
+```
+
+### Lecture 21 - Manual Creation of neural Network Part 2: Operations
+
+* The Operation class we will create will have:
+	* Input Nodes attribute (list of nodes)
+	* Output Nodes attribute (list nodes)
+	* Global default graph variable
+	* Compute method overwritten by extended classes
+* Graph will be a global var, tensorFlow runs on Graphs. we can envision it as a list of nodes. a simple graph will have some constant nodes (n1,n2) and an operation node (n3). the operation node will be a child class of the generic Operation class
+* we implement the Operation class
+	* at instantiation we get a list of the input node, we add the operation instance in the output node list of the input nodes
+	* the compute method is an abstract method. left for instantiation to the children
+```
+class Operation():
+	def __init__(self,input_nodes=[]):
+		self.input_nodes = input_nodes
+		self.output_nodes = []
+
+		for node in input_nodes:
+			node.output_nodes.append(self)
+	def compute(self):
+		pass
+```
+* we create a child class *add* to the Operation. it takes 2 input nodes. its compute method adds them up. also it satisfies the partent constructor req providing them as a list. also it has its own attribute of inputs
+```
+class add(Operation):
+	def __init__(self,x,y):
+		super().__init__([x,y])
+
+	def compute(self,x_var,y_var):
+		self.inputs = [x_var,y_var]
+		return x_var+y_var
+```
+* we implement two more operation  child classes (named in lowercase per tensorFlow convention) multiplication and matrix multiplication (do the dot vector multiplication)
+```
+class multiply(Operation):
+	def __init__(self,x,y):
+		super().__init__([x,y])
+
+	def compute(self,x_var,y_var):
+		self.inputs = [x_var,y_var]
+		return x_var*y_var
+
+class matmul(Operation):
+	def __init__(self,x,y):
+		super().__init__([x,y])
+
+	def compute(self,x_var,y_var):
+		self.inputs = [x_var,y_var]
+		return x_var.dot(y_var)
+```
