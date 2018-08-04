@@ -305,3 +305,53 @@ class matmul(Operation):
 		self.inputs = [x_var,y_var]
 		return x_var.dot(y_var)
 ```
+
+### Lecture 22 - Manual Creation of neural Network Part 3: Placeholders and Variables
+
+* Placeholder: An empty node that needs a value to be provided to compute output
+* Variables: Changeable parameter of Graph
+* Graph: Global Variable connecting variables and placeholders to operations
+* we create the classes
+```
+class Placeholder():
+	def __init__(self):
+		self.output_nodes = []
+		_default_graph.placeholders.append(self)
+
+class Variable():
+	
+	def __init__(self,initial_value=None):
+		self.value = initial_value
+		self.output_nodes = []
+		_defualt_graph.variables.append(self)
+
+class Graph():
+	def __init__(self):
+		self.operations = []
+		self.placeholders = []
+		self.variables = []
+
+	set_as_default(self):
+		global _default_graph
+		_default_graph = self
+```
+
+* when we call `_defualt_graph.variables.append(self)` we append the current instance to the list of the graph
+* we implement a simple example: z = Ax + b (A=10, b=1) => z=10x+1
+* our code looks like (x we dont know what it is so we treat it as placeholder)
+```
+g = Graph()
+g.set_as_default()
+A = Variable(10)
+b = Variable(1)
+x = Placeholder()
+y = multiply(A,x)
+z = add(y,b)
+```
+* to compute we need a traverse-post-order function to do post traversal of nodes (keep correct order of computations) it is common in treee theory
+* we need a session class that executes the whole thing
+
+### Lecture 23 - Manual Creation of neural Network Part 4: Session
+
+* Now thatwe have all nodes ready we need to execute all the operations within a Session
+* we will use the *Postorder Tree Traversal* to make sure we execute the nodes in teh correct order
