@@ -732,3 +732,4 @@ y_pred_plot = final_slope*x_test+final_intercept
 plt.plot(x_test,y_pred_plot,'r')
 plt.plot(x_data,y_label,'*')
 ```
+* if we set training_steps to 100 the fit is better
