@@ -486,7 +486,178 @@ sess.run(operation=a, feed_dict={x:[8,10]})
 
 ## Section 6 - TensorFlow Basics
 
-### Lecture 26 - Introduction to TensorFlow
+### Lecture 25 - Introduction to TensorFlow
 
 * that section will expand on what we ve learned and explore the TensorFlow framework approach to Neural Networks
 * we ll see a lot of similarities with our simplw python implementation
+* TensorFlow Basics
+	* TF Basic Syntax
+	* TF Graphs
+	* TF Variables
+	* TF Placeholders
+* TensorFlow NeuralNetwork
+* TensorFlow  Regression and Classification Example and Exercise
+
+### Lecture 26 - TensorFlow Basic Syntax
+
+* we import tensorflow `import tensorflow as tf`
+* we check version `print(tf.__version__)`
+* we create a tensor (1d array) constant passing a string literal 
+```
+hello = tf.constant('Hello ')
+world = tf.constant('World')
+```
+* we check its type `type(hello)` >> tensorflow.python.framework.ops.Tensor. 
+* its a Tensor object. if we try to print it we get no literal. to see the content we need to do the print in a session
+* to create a session we write `with tf.Session() as sess:` what we write in the block is the session code
+```
+with tf.Session() as sess:
+	# Session code
+	result = sess.run(hello+world)
+```
+* if we `print(result)` after the session we get >> b'Hello World'
+* if we set numeric constants
+```
+a = tf.constant(10)
+b = tf.constant(20)
+```
+* and check their type thery are Tensor objects
+* if we add them outside a session `a+b` the result is a Tensor which has the add of type int32 but we dont get the result. to get the result we should do the addition in a session run
+```
+with tf.Session() as sess:
+	result = sess.run(a+b)
+```
+* if i see result after session run is 30
+* *tf.fill* fills a matrix of certain dimensions with a value `fill_mat = tf.fill((4,4),10)` dimensions are passed as a tuple
+* *tf.zeros* fills a matrix of certain dimensions with zeroes `myzeros = tf.zeros((4,4))`
+* *tf.ones* does the same as zeroes with 1s
+* we can fill a matrix with random vals froma normal distrr with *tf.random_normal* `myrandn = tf.random_normal((4,4),mean=0,stddev=1.0)`
+* we can use uniform distribution instead *tf.random_uniform* `myrandu = tf.random_uniform((4,4),minval=0,maxval=1)`
+* we add all these methods to a list `my_ops = [const,fill_mat,myzeros,myones,myrandu,myrandn]`
+* we will execute it in a session. apart from teh syntax we saw thereis an interactive session syntax which is useful for notebooks
+```
+sess = tf.InteractiveSession()
+for op in my_ops:
+	print(sess.run(op))
+```
+* we see the printouts on screen
+* instead of `sess.run(op)` we can run `op.eval()` in a session context with the same results
+* matrix multiplication is amajor topic of tensorflow basics. we define a 2by2 matrix of constants `a = tf.constant([[1,2],[3,4]])` as a tensor object
+* if we call `a.get_shape()` >> TensorShape([Dimension(2),Dimension(2)])
+* we define a 2by1 matrix `b = tf.constant([[10],[100]])`
+* we multiply them `result = tf.matmul(a,b)` we call `sess.run(result)` in an interactive session and get the 2by1 array as a result
+
+### Lecture 27 - TensorFlow Graphs
+
+* Graphs a re sets of connected nodes (vertices)
+* the connections are referred to as edges
+* In TensorFlow each node is an operation with possible inputs that can supply some output
+* with TensorFlow we will construct a graph and then execute it
+* we will build a simple graph of 3 nodes (2 input nodes of constants + one operation node that adds the two)
+* we code it 
+```
+import tensorflow as tf
+n1 = tf.constant(1)
+n2 = tf.constant(2)
+n3 = n1+n2
+```
+* this is a primitive graph we can run in a session
+```
+with tf.Session() as sess:
+	result = sess.run(n3)
+```
+* we print the result outside the session `print(result)` and get 3
+* if we print the n3 we get its strigified version as a Tensor of add type operating on int32
+* when we start TensorFlow a default graph is created. we can easily create additional graphs
+* we can retrieve the default graph object `print(tf.get_default_graph())` >> <tensorflow.python.framework.ops.Graph object at 0x000001971C96F8D0>
+* we can create a grapoh object `g = tf.Graph()` and print it. the output is the same but it resides in another prt of the memory
+* to set another graph as default we use
+```
+with g.as_default():
+	print (g is tf.get_default)graph())
+```
+* so when we set as_default() we do it in a sepcific context (session like) where we run our code (temporary assignment)
+
+### Lecture 28 - Variables and Placeholders
+
+* There are two main types of tensor objects in  a Graph. Variables and Palceholders
+* during the optimization process tensorflow tunes the parameters of the model
+* variables can hold the values of weights and biases throughout the session
+* variables need to be initialized
+* Placeholders are initialy empty and are used to feed in the actual training examples
+* however they do need a declared expected data type (e.g tf.float32) with an optional shape argument
+* we see them in action in anew notebook
+* we import tensorflow `import tensorflow as tf`
+* we create an interactive session `ses s= tf.InteractiveSession()`
+* we create a tensor of size 4by4 of uniform random nums 0-1 `my_tensor = tf.random_uniform((4,4),0,1)`
+* we create a variable `my_var = tf.Variable(initial_value = my_tensor)` passing a tensor as initial val
+* if we run our var in a session we get an error because we need to initalize it first
+* we do this by runing the grobal variables initializer to initalize the variable first
+```
+init = tf.global_varialbes_initializer()
+sess.run(init)
+```
+* if we now run `sess.run(my_var)` we see the array in output
+* we create a placeholder `ph = tf.placeholder(tf.float32)` usually we set the shape as a tuple of (None,5) we use none because it can be filled by the actual number of samples in the data passed in fed in batches
+
+### Lecture 29 - TensorFlow: A Neural Network Part One
+
+* we will build our first TF neural network
+* we ve learned about Sessions, Graphs, Varialbes and Placeholders
+* usining these building blocks we can create our first neuron
+* we will create a neuron that performs a simple linear fit to 2d data
+* Our steps are:
+	* Build a graph
+	* initate a session
+	* feed data in and get output
+* we ll use the basics learned so far to  pull through the task
+* our graph will execute wx+b=z
+	* w: variable
+	* x: placeholder
+	* y = tf.matmul(w,x): operation
+	* b: variable
+	* z = tf.add(y,b): operation
+	* z passed through activation function (e.g sigmoid)
+* afterwards we can add in the cost function in order to train the network and optimize the params
+* we import numpy and tensorflow
+```
+import numpy as np
+import tensorflow as tf
+```
+* we add random seeds 
+```
+np.random.seed(101)
+tf.set_random_seed(101)
+```
+* we create a random 5by5 array `rand_a = np.random.uniform(0,100,(5,5))`
+* and one 5by1 `rand_b = np.random.uniform(0,100,(5,1))`
+* we create two placeholders 
+```
+a = tf.placeholder(tf.float32)
+b = tf.placeholder(tf.float32)
+```
+* in convolutional neural networks placeholder shape is important
+* we create our operations using tf default math
+* tensorflow can understand math expressions ttrnasforming the to build ins `a+b => tf.add(a,b)`
+```
+add_op = a+b
+mul_op = a*b
+```
+* a and b are placeholder objects so in a session we need to feed them with dictionaties of inputs
+```
+with tf.Session() as sess: 
+	add_result = sess.run(add_op, feed_dict={a:10,b:20})
+	print(add_result)
+```
+* we get 30.0 as result
+* we repeat the drill passing in the dictionaries the random numpy arrays
+```
+with tf.Session() as sess: 
+	add_result = sess.run(add_op, feed_dict={a:rand_a,b:rand_b})
+	print(add_result)
+	mult_result = sess.run(mul_op, feed_dict={a:rand_a,b:rand_b})
+	print(mult_result)
+
+```
+
+### Lecture 30 - Tensorflow: A Neural Network Part Two
