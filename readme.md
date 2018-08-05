@@ -661,3 +661,74 @@ with tf.Session() as sess:
 ```
 
 ### Lecture 30 - Tensorflow: A Neural Network Part Two
+
+* we create a simple neural network
+* usually we define our global constnat vars in atop cell e.g num of feats `n_features = 10` or the dencity of neurons per layer `n_dense_neurons = 3`
+* we create teh placeholder for x `x = tf.placeholder(tf.float32,(None,n_features))` keeping the num of samples open ofr the data batches
+* we define our variables (weights and bias) initalizing them with random nums
+```
+W = tf.Variable(tf.random_normal([n_features,n_dense_neurons]))
+b = tf.Variable(tf.ones[n_dense_neurons])
+```
+* W gets multiplied to x so num of rows for W is the same as num of cols for x
+* we now define operations and activation functions
+```
+xW = tf.amatmul(x,W)
+z = tf.add(xW,b)
+```
+* we pass z to the activation function to get the output `a = tf.sigmoid(z)`
+* we are now ready to run all steps in a session, first we need to initialize vars 
+```
+init = tf.global_variables_initializer()
+with tf.Session() as sess:
+	sess.run(init)
+	layer_out = sess.run(a,feed_dict=x:np.random.random([1,n_features]))
+```
+* we print the output is a 3 by 1 array with vals between 0 and 1
+* what we have done so far is just one iteration. we are not adjusting our variables (w and b trying to minimize the error or cost
+* we need a cost function and an optimizer to do it
+* we show this with a simple regression example
+* we set x data as a linspace from 0 to 10 adding a bit of noise `x_data = np.linspace(0,10,10) + np.random.uniform(-1.5,1.5,10)`
+* we also create some labels in the same way ``y_label = np.linspace(0,10,10) + np.random.uniform(-1.5,1.5,10)`
+* we import matplotlib and we plot them `plt.plot(x_data,y_label,'*')`. we see that there is a linear trend despite the randomness so a good candidate for regression
+* we now go and create our neural network in tensorflow (y = mx+b)
+* we create our vars passin in random initial nums we get from numpy
+```
+np.random.rand(2) # we get arra([0.44242354, 0.87758732])
+m = tf.Variable(0.44)
+b = tf.Variable(0.87)
+```
+* we create the cost function for our ANN using the square error
+```
+error = 0
+
+for x,y in zip(x_data,y_label):
+	y_hat = m*x+b
+	error +=(y-y_hat)**2
+```
+* we need to minimize the error. we use an optimizer for that (Gradiewnt descent). we tell it explicitly what it has to otpimize
+```
+optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001)
+train = optimizer.minimize(error)
+```
+* we are almost ready . we initalize vars `init = tf.global_variables_initializer()`
+* we create the session and run it
+```
+with tf.Session() as sess:
+	sess.run(init)
+	training_steps = 1
+	for i in range(training_steps):
+		sess.run(train)
+	final_slope, final_intercept = sess.run([m,b])
+```
+* we expect bad results with just 1 training session. we evaluate the results with some test data
+```
+x_test = np.linspace(-1,11,10)
+# y = mx+b
+y_pred_plot = final_slope*x_test+final_intercept
+```
+* we overlay the prediction as a line on our train data. it is ok
+```
+plt.plot(x_test,y_pred_plot,'r')
+plt.plot(x_data,y_label,'*')
+```
