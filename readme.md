@@ -7,21 +7,21 @@
 ### Lecture 1 - Introduction
 
 * we will learn how to use Google's TensorFlow framework to prerform the latest techniques in the Deep Learning ecosystem
-* we wll start with a crashcourse in the essential Python data science libraries (know them)
+* we wll start with a crashcourse in the essential Python data science libraries (we know them from PythonDSMLBootcamp course)
 	* numpy
 	* pandas
 	* matplotlib
 	* scikit learn
 * we will then dive straight into Neural Networks (Perceptrons, Activation Functions, Back Propagation etc)
 * Then we ll dive in Tensorflow
-* A variety of networks is covered
+* A variety of networks are covered
 	* Densely Connected Neural Networks (basic classification and regression tasks)
 	* Convolutional Neural Networks (complex image classification tasks)
 	* Recurrent Neural Networks + Long-Short Term Memory Units + Gated Recurrent units (analyze sequences of data like time series)
 	* Word2Vec algorithm (word embeddings)
 	* Auto Encoders (revised tasks)
 * Generative Adversarial Networks 
-* Reinforcement Learning with [OpenAI Gym](https://gym.openai.com/) to teach algorithms to paly video games
+* Reinforcement Learning with [OpenAI Gym](https://gym.openai.com/) to teach algorithms to play video games
 
 ### Lecture 2 - Course Overview
 
@@ -39,16 +39,16 @@
 
 ### Lecture 5 - Intalling TensoFlow Environment
 
-* we go to anaconda.com (anaconda is a high perfirmance distribution of a lot of data science packages)
+* we go to anaconda.com (anaconda is a high performance python distribution with of a lot of data science packages)
 * we download for ubuntu (python3) => follow installation instructions
 * do not add anaconda to Path (unless we want anaconda to be our main distro for python). for this course it is ok to do so
-* with anaconda installed on our machine it time to restore the env file
+* with anaconda installed on our machine its time to restore the env file
 * we open the terminal
 * cd to where the tfdl_env.yml file is placed
 * then we run `conda env create -f tfdl_env.yml`
 * we now activate the conda env `source activate tfdeeplearning`
-* we run `hupyter notebook` and it should open a browser for us
-* to check installation of tensorflow in jupoyter
+* we run `jupyter notebook` and it should open a browser for us
+* to check installation of tensorflow in jupyter
 ```
 import tensorflow as tf
 hello = tf.constant("hello world")
@@ -64,8 +64,8 @@ print(sess.run(hello))
 * recap from PythonDSMLBootcamp course lecture
 * we will talk about supervised learning,unsupervised learning, reinforced learning , evaluation methods and more (AGAIN)
 * unlike normal computer programs machine learning techniques learn from data
-* ML algos can find insights in data even if the y are not specifically instructed what to look for in data
-* we define a set of rules not tell it what to do
+* ML algos can find insights in data even if they are not specifically instructed what to look for in data
+* we define a set of rules. We do not tell it what to do
 * three Major types of ML algos
 	* Supervised,
 	* Unsupervised
@@ -73,11 +73,11 @@ print(sess.run(hello))
 * We ll also look into word embeddings with Word2Vec
 * *Supervised Learning*:
 	* uses *labeled* data to predict a label given some features
-	* if a label is *continuous* it is called a regfression problem, if its *categorical* itr is a *classification* problem
+	* if a label is *continuous* it is called a regression problem, if its *categorical* it is a *classification* problem
 	* it has the model train on historical data that is already labeled
 	* once the model is trained it can be used on new data where only the feats are known, to attempt prediction
-* If we dont have labels fo our data (only feats) we have no right answer to fit on. we can only look for patterns in the data and find structures AKA *Unsupervised Learning*:
-	* *clustering* problems: e.g heights and weights fgor breeds of dogs. (no labels). we cluster the data into similar groups (clusters). it s up to the scientist to interpret the clusters (assign lables 'breeds'). clustering algos cluster points based on common feats
+* If we dont have labels for our data (only feats) we have no right answer to fit on. we can only look for patterns in the data and find structures AKA *Unsupervised Learning*:
+	* *clustering* problems: e.g heights and weights for breeds of dogs. (no labels). we cluster the data into similar groups (clusters). its up to the scientist to interpret the clusters (assign lables 'breeds'). clustering algorithms cluster datapoints based on common feats
 * *Reinforced Learning*:
 	* algorithms that learn how to play a video game, drive a car etc
 	* it works through trial and error to find which actions yield the greatest rewards
@@ -91,7 +91,7 @@ print(sess.run(hello))
 * After we discuss some key differences for unsupervised learning and hold out data sets
 * ML process is discussed before (DSMLBootcamp)
 * A *Hold Out Set* or Evaluation Set. is a similar process to the Train/Test split. We split in three groups train/test/holdout. we train our model on the train set, we test our model on the test data. we repeat
-* once we are ready to deploy we use our holdout set to get a final metric (evaluation) on the performance after deployment. 
+* once we are ready to deploy, we use our holdout set to get a final metric (evaluation) on the performance after deployment. 
 * the reason is that we tune our model to better the results on the test data so we might have bias. that's why we use the holdout set to confirm the metrics as it is a set unseen before by the model.
 * we dont retune after we get the metrics from the holdout set. we keep them
 * Evaluation Metrics:
@@ -129,13 +129,13 @@ print(sess.run(hello))
 	* dendrites (many) feed in the body of the cell electrical signals
 	* from the body a single electrical signal is passed to the axon to connect to another neuron
 * The Artificial neuron also has inputs and outputs
-* A simple nuron model is known as perceptron (2 inputs + 1 output)
+* A simple neuron model is known as perceptron (2 inputs + 1 output)
 	* inputs can have feature values
 	* a weight value (adjustable and different per input) is applied on each input
-	* wights initialy start off as random
+	* weights initialy start off as random
 	* inputs are multiplied by weights
 	* these results are passed to an activation function (body of neuron): there are many activation functions
-	* we assume a simple activation function (if sum of weighted inputs >0 return 1, if negative return 0)
+	* we assume a simple activation function (e.g. if sum of weighted inputs >0 return 1, if negative return 0)
 	* the output is the result of the activation function
 	* a possible problem if when inputs are 0. weights dont have any effect and activation always outputs 0
 	* we fix it adding a 3rd adjustable input: the bias (we set it initially to 1)
@@ -145,14 +145,14 @@ print(sess.run(hello))
 
 * we ve seen how a single perceptron behaves, now lets expand this concept to the idea of a neural network
 * lets see how to connect many perceptrons together and how to represent this mathematically
-* a multiple perceptrons lnetwork is a multilayered network with each layer containing an array of neurons. each layer feeds its output to the next layer as its inputs
+* a multiple perceptrons network is a multilayered network with each layer containing an array of neurons. a alyers output is next layers input
 * usually we have an input layer some hidden layers and an output layer
 * Input Layers get the real values from the data
 * Hidden Layers are in between the input and output layer, a network of 3 or more hidden layers is considered DeepNN (DNN)
 * Output Layer is the final estimate of the output
 * As we go forward through more layers the level of abstraction increases
 * We ll now look into the activation function
-* in our previous simple exampe the activation function was simple kind like a one step dunction (y 0 or 1)
+* in our previous simple example the activation function was simple kind like a step function (y = 0 or 1)
 * this is a dramatic function as small changes are not reflected
 * it would be nice if we could have a more dynamoc function, like an S-curve (logistic curve or sigmoid function)
 * we can use sigmoid function for this f(x) = 1/(1+e^(-x)) where x is z = Σwx+b
@@ -168,7 +168,7 @@ print(sess.run(hello))
 * we can use the cost function to measure how far we are from, the expected value
 * we will use the following vars
 	* y to represent the true value
-	* a to represent neueron's prediction
+	* a to represent neuron's prediction
 * in terms of weights and bias
 	* w * x + b = z
 	* Pass z into activation function e.g sigmoid function σ(z)=a
@@ -178,7 +178,7 @@ print(sess.run(hello))
 * *Cross Entropy* C = (-1/n)Σ(y * ln(a)) + (1-y) * ln(1-a)
 * this cost function allows for faster learning
 * the larger the difference, the faster the neuron can learn
-* We have some good options to start with for 2 aspects of DNN learnign. neurons and their activations functions and the cost function
+* We have some good options to start with for 2 aspects of DNN learning. neurons and their activations functions and the cost function
 * we are missing the learning part
 * we have to figure out how we can use our neurons and the measurement of error (cost function) and then attempt to correct the prediction AKA learn
 * we will see how we can do it with gradient descent
@@ -186,13 +186,13 @@ print(sess.run(hello))
 ### Lecture 18 Grandient Descent Backpropagation
 
 *Gradient Descent* is an optimization algorithm for finding the minimum of a function
-* to find a local minimum we take steps proportinal to the negative of the gradient
+* to find a local minimum we take steps proportional to the negative of the gradient
 * gradient descent in 1 dimension plot (cost in y axis, a weight in x axis)  is like an U curve
-* gradient is the dF() derivative of function. we find it a nd see which way it goes in the negative direction. we follow the plot untill we reach the minimum C (bottom of curve)
+* gradient is the dF() derivative of function. we find it and see which way it goes in the negative direction. we follow the plot untill we reach the minimum C (bottom of curve)
 * what we get is we find the weight that minimizes cost
 * finding this minimum is simple for 1 dimension. but our ML cases will have more params, meaning we will need to use the built-in linear algebra that our Deep Learning lib will provide
 * Using gradient descent we can figure out the best params for minimizing our cost. e.g finding the best values for the weights of the neuron inputs
-* our problem to solve is how to quickly adjust the optimal params or eweights across our entire network
+* our problem to solve is how to quickly adjust the optimal params or weights across our entire network
 * *Backpropagation* is the way
 * Backrpropagation is used to calculate the error contribution of each neuron after a batch of data is processed
 * it relies heavily on the chain rule to go back through the network and calculate these errors
@@ -220,7 +220,7 @@ print(sess.run(hello))
 	* add hidden layers
 	* change activation fuynction to relu and do a 5* 6 nurons and 4 in output 
 	* we get a good output
-* we max out ^ * 8
+* we max out 6 layers * 8neurons
 * if we put learnign rate to 10 it learns faster but output is like
 
 ### Lecture 20 - Manual Creation of neural Network Part 1
@@ -235,7 +235,7 @@ class SimpleClass():
 	def yell(self):
 		print('YELLING')
 ```
-* we also set a string literal `s="world` of type str and see its biult in methods
+* we also set a string literal `s="world` of type str and see its built in methods
 * to create an instance of a class we write `x = SimpleClass()` this call executes the __init__ method (constructor)
 * if I write `x` i see the address of the specific object
 * `x.yell()` >>YELLING
@@ -323,7 +323,7 @@ class Variable():
 	def __init__(self,initial_value=None):
 		self.value = initial_value
 		self.output_nodes = []
-		_defualt_graph.variables.append(self)
+		_default_graph.variables.append(self)
 
 class Graph():
 	def __init__(self):
@@ -336,7 +336,7 @@ class Graph():
 		_default_graph = self
 ```
 
-* when we call `_defualt_graph.variables.append(self)` we append the current instance to the list of the graph
+* when we call `_default_graph.variables.append(self)` we append the current instance to the list of the graph
 * we implement a simple example: z = Ax + b (A=10, b=1) => z=10x+1
 * our code looks like (x we dont know what it is so we treat it as placeholder)
 ```
@@ -488,4 +488,5 @@ sess.run(operation=a, feed_dict={x:[8,10]})
 
 ### Lecture 26 - Introduction to TensorFlow
 
-* 
+* that section will expand on what we ve learned and explore the TensorFlow framework approach to Neural Networks
+* we ll see a lot of similarities with our simplw python implementation
