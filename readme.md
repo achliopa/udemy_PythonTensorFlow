@@ -353,5 +353,139 @@ z = add(y,b)
 
 ### Lecture 23 - Manual Creation of neural Network Part 4: Session
 
-* Now thatwe have all nodes ready we need to execute all the operations within a Session
-* we will use the *Postorder Tree Traversal* to make sure we execute the nodes in teh correct order
+* Now that we have all nodes ready we need to execute all the operations within a Session
+* we will use the *Postorder Tree Traversal* to make sure we execute the nodes in the correct order
+* we cp the post order traverse function
+```
+def traverse_postorder(operation):
+    """ 
+    PostOrder Traversal of Nodes. Basically makes sure computations are done in 
+    the correct order (Ax first , then Ax + b). Feel free to copy and paste this code.
+    It is not super important for understanding the basic fundamentals of deep learning.
+    """
+    
+    nodes_postorder = []
+    def recurse(node):
+        if isinstance(node, Operation):
+            for input_node in node.input_nodes:
+                recurse(input_node)
+        nodes_postorder.append(node)
+
+    recurse(operation)
+    return nodes_postorder
+```
+* now we will code the Session class,
+* we create a run method passing the operation we want to compute and a feed dictionary as tensorflow actually expects in its sessions. its a dictionary mapping placeholders to actual input values
+* in run we distinguish between node types taking action
+* `(*node.inputs)` notation is pythons *args (variable number of arguments)
+```
+clas Session():
+	def run(self,operation,feed_dict={}):
+		nodes_postorder = traverse_postorder(operation)
+
+		for order in nodes_postorder:
+			if type(node) == Placeholder:
+				node.output = feed_dict[node]
+			elif type(node) == Variable:
+				node.output = node.value
+			else
+				# Operation => fill its inputs
+				node.inputs = [input_node.output for input_node in node.input_node]
+				node.output = node.compute(*node.inputs)
+
+			if type(node.output) == list:
+				node.output = np.array(node.output)
+
+		return operation.output
+```
+* we execute it. 
+```
+sess = Session()
+result = sess.run(operation=z,feed_dict={x:10})
+```
+
+* our result is 101
+* we try it with a matrix. we create a graph
+```
+g = Graph()
+g.set_as_default()
+A = Variable([[10,20],[30,40]])
+b = Variable([1,2,])
+x = Placeholder()
+y = matmul(A,x)
+z = add(y,b)
+sess = Session()
+result = sess.run(operation=z,feed_dict={x:10})
+```
+* our result is an 2*2 matrix
+
+### Lecture 24 - Manual Neural network Classification Task
+
+* We will do linear classification using out custom neuron (perceptron)
+* we need an activation function to classify based on results
+* we will plot the activation function to see it graphicaly
+```
+import matplotlib.pyplot as plt
+%matplotlib inline
+```
+* we create the sigmoid function
+```
+def sigmoid(z):
+	return 1 / (1 + np.exp(-z))
+```
+* we make a linspace and pass it to the func ploting x to y
+```
+sample_z = np.linspace(-10,10,100)
+sample_a = signmoid(sample_z)
+plt.plot(sample_z,sample_a)
+```
+* we make Sigmoid an operation to use it in our ANN
+```
+class Sigmoid(Operation):
+	def __init__(self,z):
+		super().__init__([z])
+
+	def compute(self,z_val):
+		return 1 / (1+ np.exp(-z_val))
+```
+* we need datasets to do a proper classification so we import from sklearn
+```
+from sklearn.datasets import make_blobs
+data = make_blobs(n_samples=50,n_features=2,centers=2,random_state=75)
+```
+* data is a tuple with 2 eleemtns. firstis an array and second is a label val
+* we extract and plot the feats
+```
+featues = data[0]
+labels = data[1]
+plt.scatter(features[:,0],features[:,1],c=labels)
+```
+* they are clearly separable so clasification is easy
+* we first draw a line that separates the clusters on the plot
+```
+x = np.linspace(0,11,10)
+y = -x + 5
+plt.plot(x,y)
+```
+* we feed the  perceptron using a matrix representation of the featts (tensorflow wants it)
+* x and y in our plot are feats. so we need to make a featmatrix (pivot table)
+* our separation line is `feat2 = -1*feat1 + 5` = > feat2+feeat1 -5 = 0 => featmatrix[1,1] -5 = 0 => (1,1) * f -5 = 0 where f is 2by1 matrix `np.array([1,1]).dot(np.array([[8,[10]]) -5` is 13 > 0 so class1 this is how perceptron will look like
+* we code our network
+```
+g = Graph()
+g.set_as_default()
+x  = Placeholder()
+w = Variable([1,1])
+b = Variable(-5)
+z = add(matmul(w,x),b)
+a = Sigmoid(z) # activator. good choice as we classify on 0
+sess = Session()
+sess.run(operation=a, feed_dict={x:[8,10]}) 
+```
+* we get 99.9% certainty its in class 1
+
+## Section 6 - TensorFlow Basics
+
+### Lecture 26 - Introduction to TensorFlow
+
+* 
