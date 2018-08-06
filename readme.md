@@ -733,3 +733,15 @@ plt.plot(x_test,y_pred_plot,'r')
 plt.plot(x_data,y_label,'*')
 ```
 * if we set training_steps to 100 the fit is better
+
+### Lecture 31 - Tensorflow Regression Example: Part One
+
+* we ll code along a more realisting regression example and introduce the *tf.estimator*
+* tensorflow is used for tasks that classical ML algorithms cannot solve. estimator is used for the simple ML problems
+* we import numpy, pandas and matplotlib and set it inline, we import tensorflow
+* we will create a very large dataset ourselves with linspace `x_data = np.linspace(0.0,10.0,1000000)`
+* we add some noise `noise = np.random.randn(len(x_data))` a million normal distr random points
+* we will use for our linear fit for our second feat (y of datapoint or label)  y = mx + b where b=5 and m = 0.5 `y_true = (0.5 * x_data) + 5 + noise` so its not a perffectly fitted line
+* we convert our x_data to a dataframe `x_df = pd.DataFrame(data=x_data,columns=['X Data'])` 
+* we convert our y data to a Dataframe `my_data = pd.DataFrame(data=y_true,columns=['Y'])`
+* we concat 2 dfs along the y axis `my_data = pd.concat([x_df,y_df],axis=1)`
