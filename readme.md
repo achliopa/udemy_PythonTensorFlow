@@ -744,4 +744,33 @@ plt.plot(x_data,y_label,'*')
 * we will use for our linear fit for our second feat (y of datapoint or label)  y = mx + b where b=5 and m = 0.5 `y_true = (0.5 * x_data) + 5 + noise` so its not a perffectly fitted line
 * we convert our x_data to a dataframe `x_df = pd.DataFrame(data=x_data,columns=['X Data'])` 
 * we convert our y data to a Dataframe `my_data = pd.DataFrame(data=y_true,columns=['Y'])`
-* we concat 2 dfs along the y axis `my_data = pd.concat([x_df,y_df],axis=1)`
+* we concat 2 dfs along the y axis `my_data = pd.concat([x_df,y_df],axis=1)` in that way we can easily plot it out
+* we want to plot the dataset but its huge. we can select random samples of a df with `.sample(n=numofsamples)` we plot that `my_data.sample(n=250).plot(kind='scatter',x='X Data', y='Y')`
+* as expected we see a linear trend with randomness
+* we want tensorflow to find the linear fit
+* we cannot feed 1 million points in a NN we should feed batches
+* we start creating our NN
+```
+batch_size = 8
+random = np.random.randn(2)
+m = tf.Variable(random[0])
+b = tf.Variable(random[1])
+xph = tf.placeholder(tf.float32,[batch_size])
+yph = tf.placeholder(tf.float32,[batch_size])
+y_model = m*xph + b # my graph
+# we create our cost function using tensorflow optimized functions
+error = tf.reduce_sum(tf.square(yph-ymodel))
+# we define the optimizer
+optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001)
+train = optimizer.minimize(error)
+init = tf.global_variables_initializer()
+with tf.Session() as sess:
+	sess.run(init)
+	batches = 1000
+	for i in range(batches):
+		# choose 8 random index points
+		rand_ind = np.random.randint(len(x_data),size=batc_size)
+		feed = {xph:x_data[rand_ind],yph:y_true[rand_ind]}
+		sess.run(train,feed_dict = feed)
+	model_m,model_b = sess.run([m,b])
+```
