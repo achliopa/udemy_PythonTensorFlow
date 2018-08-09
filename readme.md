@@ -774,3 +774,11 @@ with tf.Session() as sess:
 		sess.run(train,feed_dict = feed)
 	model_m,model_b = sess.run([m,b])
 ```
+* model_m is 0.52569, model_b is 4.92
+* we can visualize it
+```
+y_hat = x_data*model_m+model_b
+my_data.sample(250).plot(kind='scatter',x='X Data', y='Y')
+plt.plot(x_data,y_hat,'r')
+```
+* we repeat for 10k batches, we are getting closer to our linear fit. m=0.5,b=5
