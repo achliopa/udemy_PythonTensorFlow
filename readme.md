@@ -1033,4 +1033,115 @@ my_pred = list(predictions) # a list of classes with all the statistical info
 * have done it in PythonDSMLBootcamp...
 * Before we dive into using CNN on the MNIST dataset we ll use a more bvasic Softmax Regression Approach
 * We ll go over this method (similar to what we have done so far in previous sections)
+* A softmax regression returns a list of values between0 and 1 that ad dup to one.
+* we can use this as a list of probabilities *σ(z)[j] = e^z[j]/Σ[k=1][K]e^z[k] for j=1,...,K* if we have alist of 10 potential labels (0-9) we will get 10 probabilites . if we adde thm up we get 1
+* we will use the softmax function as an activation function
+* *z[i] = Σ[j](W[i,j]x[j])+b[i]* it starts like the sigmoid calculating z in the standard way
+* *y=softmax(z)[i]=exp(z[i])/Σ[j]exp(z[j])* we pass the z to the softmax ( exponential of this output divided by the sum of the exponents of all output neurons)
+* we impleemnt  this in jupyter with tensorflow
+* we import tensorflow
+* we get the data importing it from tf
+```
+from tensorflow.examples.tutorials.mnist import input_data
+mnist = input_data.read_data_sets("MNIST_data/",one_hot=True)
+```
+* mnist is a specialized tensorflow dataset `type(mnist)`
+* we can see an image array `mnist.train.images`
+* we can see the num of train or test  samples `mnist.train.num_examples` `mnist.test.num_examples`
+* we can visualize the data , we check the flattened array shape `mnist.train.images[1].shape` 
+* we import matplotlib and plot it after resaping it to a 2d matrix `plt.imshow(mnist.train.images[1].reshape(28,28))`
+* image is already normzalized .min() is 0 and .max() is 1
 
+### Lecture 46 - MNIST Basic Approach Part Two
+
+* we start building our model: placeholders, variable, graph operations, loss func, optimizer, create session
+* set the placeholders `x = tf.placeholder(tf.float32,shape=[None,784])`
+* set the variables (Weights, bias)
+```
+W = tf.Variable(tf.zeros([784,10])) # not good choice but helps keep things simple
+b = tf.Variable(tf.zeros([10]))
+```
+* we create our graph operations `y = tf.matmul(x,W) + b`
+* we create our loss function (first we create our labels placeholder). we use cross entropy with softmax
+```
+y_true = tf.placeholder(tf.float32,shape=[None,10])
+cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_true,logits=y))
+```
+* we create our optimizer 
+```
+optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.5)
+train = optimizer.minimize(cross_entropy)
+```
+* when we create a session we need to initialize all variables. we do the train in 1000 steps. mnist has build in method to feed batches in our session. we use tf.equal to check equality between pred and actual val. what we get is an array of booleans. we want to convert it to 0 and 1.we use tf built in cast method. to get the average we use reduce_mean
+```
+init = tf.global_variables_initializer()
+with tf.Session() as sess:
+	sess.run(init)
+	for step in range(1000):
+		batch_x, batch_y = mnist.train.next_batch(100)
+		sees.run(train,feed_dict={x:batch_x,y_true:batch_y})
+	# Evaluate the model
+	correct_prediction = tf.equal(tf.argmax(y,1),tf.argmax(y_true,1)) # it will return the index position with the highest probability (because of softmax)
+	# [True,False,True...] --> [1,0,1..]
+	acc =  tf.reduce_mean(tf.cast(correct_prediction,tf.float32))
+	print(sess.run(acc,feed_dict={x:mnist.test.images,y_true:mnist.test.labels}))
+```
+
+### Lecture 47 - CNN Theory Part One
+
+* we solved the MNIST task with avery simple linear approach
+* a much better approach is to use CNNs
+* just like the simple perceptron CNNs also have their origins in biology
+* Hubel and Wiesel studied the structure of the visual cortex in mammals winning the nobel Prize in 1981
+* Hubel and Wiesel research revealed that neurons in the visual cortex had a small local receptive field. these neurons are only looking at a local subsection of the entire image the person is viewing. these subsections later overlap to create a large image and visual field
+* these neurons in the visual cortex are only activated when they detect certain things (e.g a horizontal line or a circle)
+* This idea the inspired an ANN architecture that would become CNN
+* CNN was famously implemented int eh 1998 paper by Yann LeCun et al.
+* The LeNet-5 architecture was first used to classify the MNIST dataset
+* when we learn about CNNs we often see a diagram where a NbyN array (image) is first processed with feature extraction and the output of feat extraction is passed in tehe calssification NN.
+* feature extraction is a series of convolutions and subsamplings.
+* e.g NxN input -> 5x5 convolution => C1 = 6 (N-4)x(N-4) feature maps -> 2x2 subsanpling => S1 =  6 (N-4)/2x(N-4)/2 feature maps -> 5x5 convolution => C2 = 16 (N-4)/2 -4 x (N-4)/2 -4 feauture maps -> 2x2 subsamnpling => S2 = 16 ((N-4)/2 -4)/2 x ((N-4)/2 -4)/2 feature maps. the  classification NN is fully connected
+* The new topics are Convolutions and Subsampling or Pooling
+* To build CNNs we will learn about
+	* Tensors
+	* DNN vs CNN
+	* Convolutions and Filters
+	* Padding
+	* Pooling Layers
+	* Review Dropout
+* Tensors are N-Dimensional Arrays we build up to:
+	* Scalar e.g 3 (individual digits)
+	* Vector e.g [3,4,5] (1-D arrays)
+	* Matrix e.g [[3,4],[5,6],[7,8]] (2-D arrays)
+	* Tensors (High dimensioanl arrays)
+* Tensors make it very convenient to feed in sets of images into our model - (I,H,W,C) or 4D tensor
+	* I: Images 
+	* H: Height of Image in Pixels
+	* W: Width of Image in Pixels
+	* C: Color Channels. 1-Grayscale, 3-RGB
+* Now lets explore the difference between a DenselyconnectedNN and a ConvolutionalNN
+* We have already created DNNs using the tf.estimator API
+* A DenselyConnectedLayer is a layer where every neuron connects to all neurons in the next layer
+* In a Convolutional Layer, each unit (neuron) is connected to a smaller number of nearby units in next layer (loacal receptive fielrs in visual cortex)
+* Why use a CNN instead of a DenseNN?
+	* the MNIST dataset has 28by28 pixels (784)
+	* most images are at least 256by256 or larger >56k pixels total
+	* this leads to too many parameters, unscalable to new images if we use DNN
+	* CNNs hav also a major advantage for image processing as pixels nearby to each other are much more correlated for image detection
+* Each CNN layer looks at an increasingly larger part of the image
+* Having units only connected to nearby units aids in invariance
+* CBB also helps with regularization limiting the search of weights to the size of the convolution
+* we ll see how a CNN relates to image recognition
+* we start with the input layer. the image itself
+* convolutional layers are only connected to pixels in their respective fields
+* a possible issue arises for edge neurons. there may not be an inpute there for them.
+* we can fix it adding a padding of zeros around the image
+* we ll walk through 1D convolution in more detail. then we ll expand this idea to 2D Convolution.
+* we ll revisit our DNN and convert it to CNN. we use a simple 1D example of limited neurons and layers. we convert 1st layer to a convolution layer. 2 nneighbor neurons from input layer output to one output neuron of next layer (1D convolution)
+* we can treat the weights as a filter
+	* y = w1x1+w2x2
+	* if(w1,w2) = (1,-1) (arbitrary weights) then y = x1-x2
+	* y max out when (x1,x2) = (1,0)
+* this is an edge detection filter. as edges in an image appear as large differences from pixel to pixel
+* we now have a set of weights tht can act as a filter for edge detection
+* we can then expand this idea to multiple filters
