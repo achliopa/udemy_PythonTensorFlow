@@ -782,3 +782,117 @@ my_data.sample(250).plot(kind='scatter',x='X Data', y='Y')
 plt.plot(x_data,y_hat,'r')
 ```
 * we repeat for 10k batches, we are getting closer to our linear fit. m=0.5,b=5
+
+### Lecture 32 - TensorFlow Regression Example: Part Two
+
+* We ll now explore the *Estimator API* from TensorFlow
+* There are lots of other higher level APIs (e.g Keras), we ll cover them later
+* *tf.estimator* has several model types to choose from
+	* *tf.estimator.LinearClassifier* constructs a linear classification model
+	* *tf.estimator.LinearRegressor* constructs a linerar regression model
+	* *tf.estimator.DNNClassifier* constructs a neural network classification model
+	* *tf.estimator.DNNRegressor* constructs a neural network regression model
+	* *tf.estimator.DNNLinearCombinedClassifier* constructs a neural network and linear combined classification model
+* To use the Estimator API we do the following:
+	* define a list of feature columns
+	* create the Estimator Model
+	* create a Data Input Function
+	* call train,evaluate, and predict methods on the estimator object
+* we create the feature column `feat_cols = [tf.feature_column.numeric_column('x',shape[1])]` there are many options available built in the API. our data shape is 1 column and we label it (key) to 'x'
+* feat columns must be alist so we use wrapper. this sets the blueprint for the data imput
+* we create our estimator passing in the feature column `estimator = tf.estimator.LinearRegressor(feature_columns=feat_cols)`
+* we import sklearn train_test_split to split our data `from sklearn.model_selection import train_test_split`
+* we do the actual split on the data from previous lecture (artificial data) `x_train, x_eval, y_train, y_eval = train_test_split(x_data,y_true,test_size=0.3, random_state = 101)`
+if we check the shape of data (rows) `prin(x_train.shape)` we get 700000 and 300000 respectively
+* we set estimator inputs (like a feed_dict and batch size combined). our input data are numpy arrays (see last lecture) so we use the built in func. there is a func for pandas `input_func = tf.estimator.inputs.numpy_input_fn({'x':x_train},y_train,batch_size=8,num_epochs=None,shuffle=True)`
+* we cp the input func for train and test input data  setting a num of epochs
+```
+train_input_func = tf.estimator.inputs.numpy_input_fn({'x':x_train},y_train,batch_size=8,num_epochs=1000,shuffle=False)
+eval_input_func = tf.estimator.inputs.numpy_input_fn({'x':x_eval},y_eval,batch_size=8,num_epochs=1000,shuffle=False)
+```
+* we train our estimator passing in the input function. as we didnt spec num of epochs in the input we do it here `estimator.train(input_fn=input_func,steps=1000)`
+* we see the training session run and the error geting smaller
+* we want to check the training metrics so we run the evaluate method `train_metrics = estimator.evaluate(input_fn=train_input_func,steps=1000)`. we use the training input function because its not shuffles and it helps do the evaluation correctly
+* we do the same procedure for the test data `eval_metrics = estimator.evaluate(input_fn=eval_input_func,steps=1000)`
+* we compare train metrics and eval metrics by printing them
+* by comparing thre results we can see if our model is overfitting to our data (if we have low  loss on training data but high loss on eval data). ideally we want both low and SIMILAR
+* if we want to deploy the model we need to know how we will predict the vals
+* we simulate that by creating anew bunch of data to pass in. also we create a new input function without y class data
+```
+brand_new_data = np.linspace(0,10,10)
+input_fn_predict = tf.estimator.inputs.numpy_input_fn({'x':brand_new_data},shuffle=False)
+```
+* we use the predict method to get predictions `estimator.predict(input_fn=input_fn_predict)`
+* what we get is a generator object. to get the data we need to cast it into alist `list()` and get alist of dictionaries
+* we now want to plot the predictions. we fill a list
+```
+predictions = []
+for pred in estimator.predict(input_fn=input_fn_predict):
+	predictions.append(pred['predictions'])
+```
+* we plot data fro our dataset `my_data.sample(n=250).plot(kind='scatter',x='X Data',y='Y')`
+* we overlay a line connecting our predictions (linear fit) `plt.plot(brand_new_data,predictions,'r')`
+
+### Lecture 33 - TensorFlow Classification Example: Part One
+
+* we ll work with a real dataset
+* we ll work with categorical and continuous feats
+* we ll switch estimator models
+* our data will be pandas dataframe
+* we import pandas and read in our data `diabetes = pd.read.csv('pima-indians-diabetes.csv',)`
+* this is a binary classification problem
+* we chck the data with .head() and .columns
+* we want to normalize specific columns `cols_to_norm = ['Number_pregnant', 'Glucose_concentration', 'Blood_pressure', 'Triceps', 'Insulin', 'BMI', 'Pedigree']` so essentialy all numerical colums except Age as we will make it categorical data
+* we can normalize with sklearn preprocessing or pandas. we do it with pandas using our own custom lambda func `diabetes[cols_to_norm] = diabetes[cols_to_norm].apply(lambda x: (x - x.min())/(x.max() - x.min()))
+* we import tensorflow
+* we create a feat column for every numeric column (this is a blueprint)
+```
+num_preg = tf.feature_column.numeric_column('Number_pregnant')
+plasma_gluc = tf.feature_column.numeric_column('Glucose_concentration')
+dias_press = tf.feature_column.numeric_column('Blood_pressure')
+tricep = tf.feature_column.numeric_column('Triceps')
+insulin = tf.feature_column.numeric_column('Insulin')
+bmi = tf.feature_column.numeric_column('BMI')
+diabetes_pedigree = tf.feature_column.numeric_column('Pedigree')
+age = tf.feature_column.numeric_column('Age')
+```
+* to create a feature column froma categorical data column there are 2 ways. if we know all possible vaslues we can use a vocabulary list. if not we use a hash bucket
+* for assigned group we know there are 4 options so we use vocab list `assigned_group = tf.feature_column.categorical_column_with_vocabulary_list('Group',['A','B','C','D'])`
+* if we have many groups and dont want to type them in or dont know them we use hash bucket `assigned_group = tf.feauture_column.categorical_column_with_hash_bucket('Groups',hash_bucket_size=10)` hash_bucket_size is the max number of groups
+* to convert a continuous column to a categorical columns (e.g Age column) we do the following:
+* plot it out as histogram  `diabetes['Age'].hist(bins=20)`
+* we can bucketize a continuous column into a categorical using feature_columns `age_bucket =  tf.feature_column.bucketized_column(age,boundaries[20,30,40,50,60,70,80])` we pass in the numerical feature column and the boundaries
+* we create alist of all our feature columns `feat_cols = [num_preg ,plasma_gluc,dias_press ,tricep ,insulin,bmi,diabetes_pedigree ,assigned_group, age_buckets]`
+* we do the train test split on our data
+```
+x_data = diabetes['Class',axis=1]
+labels = diabetes['Class']
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(x_data,labels,test_size=0.33, random_state=101)
+```
+
+### Lecture 34 - TensorFlow Classification Example: Part One
+
+* we will now create an input function. as our data is a panda df we will use the specific function `input_func = tf.estimator.inputs.pandas_input_fn(x=X_train,y=y_train,batch_size=10, num_epochs=1000, shuffle=True)`
+* we create our model setting the num of classes `model = tf.estimator.LinearClassifier(feature_columns=feat_cols,n_classses=2)`
+* we train our model `model.train(input_fn=input_func,steps=1000)`
+* we make an evaluatiion input func for evaluating our model `eval_input_func = tf.estimator.pandas_input_fn(x=X_test,y=Y_test,batch_size=10,num_epochs=1,shuffle=False)`
+* we evaluate to get the results `results = model.evaluate(eval_input_func)`
+* we print the results. the auc and accuracy are decent but not optimal
+* to see the deployment scenario in action we create a new input function with a feat only fresh dataset (we use test data again) `pred_input_func = tf.estimator.inputs.pandas_input_fn(x=X_test,batch_size=10, num_of_epochs=1, shuffle=False)`
+* we do the actual preduction 
+
+```
+predictions = model.predict(pred_input_func)
+my_pred = list(predictions) # a list of classes with all the statistical info
+```
+* we will now create a DNN classifier using estimators API `dnn_model = tf.estimator.DNNClassifier(hidden_units=[10,10,10],feature_columns=feature_cols,n_classes=2)` we provide a list with the layers specifying the neurons in each layer
+* if we try to train our DNN model like simple estimator models passing input functions we get an error
+* this is becauses DNN expects categorical columns as embedded cols 
+* we show how to create an embedded col `embedded_group_col = tf.feature_column.embedding_column(assigned_group, dimension=4)` the dimension is the num of categories
+* we reset our feat columns `feat_cols = [num_preg ,plasma_gluc,dias_press ,tricep ,insulin,bmi,diabetes_pedigree ,embedded_group_column, age_buckets]`
+* we create our new input function `input_func = tf.estimator.inputs.pandas_input_fn(x=X_train,y=y_train,batch_size=10,num_epochs=1000,shuffle=True)`
+* we recreate our model passing in the new feat columns `dnn_model = tf.estimator.DNNClassifier(hidden_units=[10,10,10],feature_columns=feature_cols,n_classes=2)`
+* we train it `dnn_model.train(input_fn=input_func, steps=1000)`
+* we create an evaluate input function with the test data `eval_input_func = tf.estimator.inputs.pandas_input_fn( x=X_test, y=y_test, batch_size=10, num_epochs=1, shuffle=False)`
+* we do the actual evaluation `dnn_model.evaluate(eval_input_func)` our DNN doesnt help  alot as accuracy is the same. increasing steps doesnt help. we increase neurons ansd layers. no luck. so our dataset has limitations we should look for a better dataset
