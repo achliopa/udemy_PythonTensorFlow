@@ -922,3 +922,115 @@ my_pred = list(predictions) # a list of classes with all the statistical info
 * now the session object comes from our checkpoint
 * we can use it to run our stored model and get results 
 * usually train data re used in the session that gets stored and the test data are used in the session where the model is retrieved
+
+## Section 7 - Convolutional Neural Networks
+
+### Lecture 40 - Intro to CNN Section
+
+* in this section
+	* will review NNs
+	* go into new theory topics
+	* see the famous MNIST dataset
+	* solve MNIST with normal NN
+	* learn about CNN
+	* solve MNIST with CNN
+	* CNN project to exercise
+
+### Lecture 41 - Review of Neural Networks
+
+* we ve seen single neurons.
+* how to perform calcualtions in a neuron (w * x + b) = z, a = σ(z) #activation function
+* activation functions
+	* perceptrons
+	* sigmoid
+	* tanh
+	* relu
+* neurons connect to form a network
+* a network has 
+	* input layer
+	* hidden layers
+	* output layer
+* more layers -> more abstraction (image)
+* to learn we need a measuremnt of error
+* we use a cost/loss function
+	* quadratic
+	* cross-entropy
+* we minimize the error by choosing the correct weight and bias. how?
+	* using gradient descent to find optimal vals
+* we backpropagate the gradient descent through multiple layers from the output layer to the input layer
+* there are also dense layers (fully connect to all neurons in next layer) and softmax layers
+
+### Lecture 42 - New Theory Topics
+
+* Up to now we always choose random values for our weights at initialization. some alternatives are:
+* Initialize Weights to Zero:
+	* we lose randomness
+	* our dnn gets subjective
+	* nota great choice
+* Chose Random Distribution near Zero:
+	* not optimal
+	* distortion of activation functions
+* Xavier (Glorot) Initialization:
+	* 2 flavors: unifrom or normal distribution
+	* what it is? we draw weights from a distribution with 0 mean and a specific variance *Var(W)=1/n[in]*
+	* w is the initialization distribution for the neuron in question
+	* n[in] is the number of neurons feeding into it
+	* Xavier Initialization: Y = W1X1+W2X2+...+WnXn # linear neuron
+	* Variance Var(WiXi) = E[Xi]^2Var(Wi)+E[Wi]^2Var(Xi)+Var(Wi)Var(ii) 
+	* If our weights and inputs have a mean of 0 we get Var(WiXi)= Var(Wi)Var(Xi)
+	* If Wi and Xi are indipendent and typicaly distributed (IID) the variance of the oputput is
+	* Var(Y) = Var(W1X1+W2X2+...+WiXi) = nVar(Wi)Var(Xi) so variance of output is equal to variance of input multiplied by n the vairance of weight
+	* If we want the variance of input and output to be the same The varianve of weight is Var(Wi)=1/n=1/n[in] This is the Xavier Intialization formula that is widely used. 
+	* The original paper Xavier initialization formula is Var(Wi) = =2/(n[in] + n[out])
+* Gradient Descent has 3 components
+	* Learining Rate: Defines the step size during radient descent (small step => slow descent takes long time). large step might overshoot => never converge
+	* Batch size: batches allow us to use stochastic gradient descent, smaller=>less representative of data, larger=>longer training time
+* Second-Order behavior of the gradient descent allows us to adjust our learning rate based off the rate of descent (start with large steps slow down as we minimize error)
+	* AdaGrad, RMSProp, Adam
+	* Second order behaviour allows us to start with larger steps and then eventually go to smaller step sizes
+	* Adam allows this change to happen automatically
+* Unstable/ Vanishing Gradients
+	* as we increase the number of layers in a network, the layers towards the input will be affected less by the error calculation occuring at the output as we go backwards through the network
+	* initialization and normalization will help us mitigate these issues
+	* we'll discuss vanishing gradients again in more detail when discussing Recurrent Neural Networks
+* Overfitting vs Underfitting a Model (see PythonDSMLBootcamp)
+	* underfitting is when we dont have good fit to our train data. so we have big error on train and test data
+	* overfitting is when we fit too much on train data. we have very small error on train data but large error on test data
+	* we need a balance
+	* with potentially hundreds of params in a deep learning neural network the possibility of overfitting is high
+	* there are ways to mitigate the issue (see below)
+* L1/l2 Regularization 
+	* Adds a penalty for larger weights in the model. 
+	* Is not unique to neural networks. 
+	* With this we dont let a strong feat overruling the model
+* Dropout
+	* Unique to neural networks
+	* remove neurons during training randomly
+	* network do not over rely on any particular neuron (mitigate overfit)
+* Expanding Data
+	* Artificially expand data by adding noise, tilting images, adding low white noise to sound data etc...
+	* avoid overfit
+* Theory to be covered: pooling layers, convolutional layers. We will cover those when we build CNNs
+
+### Lecture 44 - MNIST Data Overview
+
+* a classic dataset in Deep Learning
+* MNIST us eesy to access with tensorflow, TF has
+	* 55000 training images
+	* 10000 test images
+	* 5000 validation images
+* MNIST contains hand written single digits from 0 to 9
+* a single digit image can be represented as an array of 28*28 pixels. each pixel has a grayscale val from 0 to 1.
+* we can flatten this array to an 1-D vector of 784 numbers. either (784,1) or (1,784) is fine as long as the dimensions are consistent
+* flattening out the image ends up removing some of the 2-D info like the relationship of a pixel to its neighboring pixels
+* we ll ignore this now. CNNs take onto account the relationship of a pixel to its neighbors. we will see then hwo to use it
+* we can think of the entire group of the 55000 train images as a tensor (aka an n-dimensional array) of size 784by 55000
+* for the labels we will use one hot encoding: instead of having labels like 'One'.'Two' etc. we will have a single array for each image. The label is represented based off the index position in the label array. the corresponding label will be a 1 at athe index location and zero everywhere else. e.g label '4' => [0,0,0,0,1,0,0,0,0,0]
+* So the labels of the data end up being a large 2d array (10,55000)
+
+### Lecture 45 - MNIST Basic Approach Part One
+
+* have done it in PythonDSMLBootcamp...
+* Before we dive into using CNN on the MNIST dataset we ll use a more bvasic Softmax Regression Approach
+* We ll go over this method (similar to what we have done so far in previous sections)
+
