@@ -879,7 +879,7 @@ X_train, X_test, y_train, y_test = train_test_split(x_data,labels,test_size=0.33
 * we make an evaluatiion input func for evaluating our model `eval_input_func = tf.estimator.pandas_input_fn(x=X_test,y=Y_test,batch_size=10,num_epochs=1,shuffle=False)`
 * we evaluate to get the results `results = model.evaluate(eval_input_func)`
 * we print the results. the auc and accuracy are decent but not optimal
-* to see the deployment scenario in action we create a new input function with a feat only fresh dataset (we use test data again) `pred_input_func = tf.estimator.inputs.pandas_input_fn(x=X_test,batch_size=10, num_of_epochs=1, shuffle=False)`
+* to see the deployment scenario in action we create a new input function with a feat only fresh dataset (we use test data again) `pred_input_func = tf.estimator.inputs.pandas_input_fn(x=X_test,batch_size=10, num_epochs=1, shuffle=False)`
 * we do the actual preduction 
 
 ```
@@ -896,3 +896,29 @@ my_pred = list(predictions) # a list of classes with all the statistical info
 * we train it `dnn_model.train(input_fn=input_func, steps=1000)`
 * we create an evaluate input function with the test data `eval_input_func = tf.estimator.inputs.pandas_input_fn( x=X_test, y=y_test, batch_size=10, num_epochs=1, shuffle=False)`
 * we do the actual evaluation `dnn_model.evaluate(eval_input_func)` our DNN doesnt help  alot as accuracy is the same. increasing steps doesnt help. we increase neurons ansd layers. no luck. so our dataset has limitations we should look for a better dataset
+
+### Lecture 35 - TF Regression Exercise
+
+* we will create amodel to predict housing prices using the tf.estimator API
+* its a cali sensus dataset. each sample is a block of 1450 pople living close to each other. data is cleaned up
+* the rule of thumb for DNNs is to staart with 3 layers. each layers should have neurons equalt in number to the features
+* a good metric is below 100k in rmse , we got 85k rmse!! eith 20k steps and 4*6 layers
+
+### Lecture 37 - TF Classification Exercise
+
+* again cali census data. 
+* we will try to predict in which income class an individual belongs to (< or > 50k $)
+* we should conver pandas column strings to 0 or 1 
+* use hashbucket for categorical columns,
+* batch size of 100
+* we ue linearclassifier (if we use DNN ae need embeding categorical columns)
+* > 5000 steps
+
+### Lecture 39 - Saving and Restoring Models
+
+* once we have our tensorflow model ready the easiest way to save it is to use `saver = tf.train.Saver()` we can name it whatever we like. this creates the saver object
+* the actual act of saving the model happens in the session . after we run our model and get results. we use `saver.save(sess,'path/filename.ckpt')` ckpt stands for checkpoint
+* to restore it we start another session. then we need to `saver.restore(sess,'path/filename.ckpt')`
+* now the session object comes from our checkpoint
+* we can use it to run our stored model and get results 
+* usually train data re used in the session that gets stored and the test data are used in the session where the model is retrieved
