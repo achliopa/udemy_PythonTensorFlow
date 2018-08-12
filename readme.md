@@ -1142,6 +1142,29 @@ with tf.Session() as sess:
 	* y = w1x1+w2x2
 	* if(w1,w2) = (1,-1) (arbitrary weights) then y = x1-x2
 	* y max out when (x1,x2) = (1,0)
-* this is an edge detection filter. as edges in an image appear as large differences from pixel to pixel
+* this is an edge detection filter. as edges in an image appear as large differences in darkness from pixel to pixel
 * we now have a set of weights tht can act as a filter for edge detection
 * we can then expand this idea to multiple filters
+* A filter with th efollowing characteristics: num of filters =1 , filter size =  2 (2 neurons involved), stride = 2 (from neuron subsection to next distance of 2) => every two neuros from input layer reduces to one in next layer, while weights  are aplied to both inputs at the same time (stride=2). or we call it moving up 2 neurons at athe time (stride=2)
+* A 1-D convolution with filters=1,filter size=2,stride=1 involves 2 layers, 1 filter and moves up 1 neuron at a time
+* we can  ad zero padding to include more edge pixels
+* A 1-D convolution with filters=2,filter size=2, stride=1 goes from one input layer to two output layers that appear stacked on the z axis. is like doing a fork on the neural network. all other chars like filter size or stride apply like normal
+* we can use multiple filters where each one detects a different feature
+* representation gets messy as we draw multiple lines all over. for simplicity we gbegin to describe and visualize these sets of neuron as blocks 
+	* for our example our input layes is depicted as 2-d recctanle  sized 1byL (1D of L neurons) 
+	* the next layer is depicted as a 3D wall (#of filters by # of neurons by 1D)
+* We ll now expand these concepts to 2-D Convolution since we ll be mainly dealing with images
+* the block represantation serves us well
+	* Input layer becomes 3d rectangle with 2 dimensions (H x W of image)
+	* THe output layer becomes a #D block with 3 dimensions (# of filters x # of units W x # of units H )
+	* subsections are also easy to depict
+	* If our image is colored (multiple color values) we add one more dimension for color
+* Filters are commonly visualized  with grids in image processing
+	* say we have a 4x4 array (image) where outer pixels are 1 (black) and inner pixels -1 (white)
+	* we add padding of o for edge cases maing it 5x5
+	* we apply a 3x3 filter  on a topleft subsection => [[0,0,0],[0,1,1],[0,1,-1]]
+	* we multiply it by filter weigths (0 for padding 1 otherwhise) output grid is the same
+	* we sum the outputs => 2 output of convoluted image
+* much like a 2d perceptron
+* How *Stride* distance works? its the step we take when selecting subsections of (filtersize) in terms of pixels or the distance from subsection to subsection
+* A cool website of CNNsin action [setosa](http://setosa.io/#/)
