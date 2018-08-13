@@ -689,7 +689,7 @@ with tf.Session() as sess:
 * we need a cost function and an optimizer to do it
 * we show this with a simple regression example
 * we set x data as a linspace from 0 to 10 adding a bit of noise `x_data = np.linspace(0,10,10) + np.random.uniform(-1.5,1.5,10)`
-* we also create some labels in the same way ``y_label = np.linspace(0,10,10) + np.random.uniform(-1.5,1.5,10)`
+* we also create some labels in the same way `y_label = np.linspace(0,10,10) + np.random.uniform(-1.5,1.5,10)`
 * we import matplotlib and we plot them `plt.plot(x_data,y_label,'*')`. we see that there is a linear trend despite the randomness so a good candidate for regression
 * we now go and create our neural network in tensorflow (y = mx+b)
 * we create our vars passin in random initial nums we get from numpy
@@ -1167,4 +1167,73 @@ with tf.Session() as sess:
 	* we sum the outputs => 2 output of convoluted image
 * much like a 2d perceptron
 * How *Stride* distance works? its the step we take when selecting subsections of (filtersize) in terms of pixels or the distance from subsection to subsection
-* A cool website of CNNsin action [setosa](http://setosa.io/#/)
+* A cool website of CNNs in action [setosa](http://setosa.io/image-kernels/) where we can see filters applied on images
+
+### Lecture 48 - CNN Theory Part Two
+
+* We now go through the subsampling or pooling section of a CNN.
+* now that we understand the convoluntional layers we ll discuss pooling layers
+* pooling layers will subsample the input image, which reduces the memory use and computer load as well as reducing the number of parameters
+* we imagine having alayer of pixels in out input image (6x6)
+* as in our MNIST dataset. each pixel has a value repres
+* pooling works by creating a pool of pixels (kernel) e.g 2x2 and evaluate the maximum value among them 
+* only max value maks it to the next layer
+* then we move over by a stride (e.g 2 pixels) and repeat
+* this pooling layer will end up removing a lot of information. even a small pooling kernel of 2x2 with a stride of 2 will remove 75% of the input data
+* another common technique  in CNNs is called "Dropout"
+* "Droptout" can be thought of as a form of regularization to help prevent overfitting
+* During training units are randomly dropped along with their connections
+* THis helps prevent units from "co-adapting" too much
+* Famous CNN Architectures
+	* LeNet-5 by Yann LeCun
+	* AlexNet by Alex Krizhevsky et al.
+	* GoogleNet by Szegedy at Google Research
+	* ResNet by Kaiming He et al.
+* Advanced CNNs are computational expensive so they need to be distributed along multiple GPUs
+
+### Lecture 49 - CNN MNIST Code Along: Part One
+
+* we import tensorflow `import tensorflow as tf`
+* we import mnist data fom tf (extract and import)
+```
+from tf.examples.tutorials.mnist import input_data
+mnist = input_data.read_data_sets("MNIST_data/",one_hot=True)
+```
+* we create a set of helper functions(initlalize weights, intialize bias, take a tensor and a filter and return a 2D convolution, pooling helper functionnat)
+* initialize weights
+```
+def init_weights(shape):
+	init_random_dist = tf.truncated_normal(shape,stddev=0.1)
+	return tf.Variable(init_random_dist)
+```
+* initialize bias vals
+```
+def init_bias(shape):
+	init_bias_vals = tf.constant(0.1,shape=shape)
+	return tf.Variable(init_bias_vals)
+```
+* create 2Dconvolution. there is a builtin tensorflow func that builds a 2dconvolution, taking an input tensor and an input kernel (filter tensor). our function will be a wrapper func setting just strides in any direction and padding to zeros using 'SAME' keyword
+```
+def conv2d(x,W):
+	# input tensor x --> [batch,H,W,Channels]
+	# kernel W --> [filter H, filter W, Channels IN, Channels OUT]
+	return tf.nnconv2d(x,W,strides=[1,1,1,1],padding='SAME')
+```
+* for subsampling or pooling we use again tensorflow conveninece function with a wrapper like before. size is the size of the kernel window. i dont care about batch and color so i put 1 in these indexes
+```
+def max_pool_2by2(x):
+	# input x --> [batch,h,w,c]
+	return tf.nn.max_pool(x,ksize=[1,2,2,1],strides[1,2,2,1],padding='SAME')
+```
+* we are going to create 2 functions that will create the layers
+* for the convolutional layer
+```
+def convolutional_layer(input_x,shape):
+	W = init_weights(shape)
+	b = init_bias([shape[3]])
+	return tf.nn.relu(conv2d(input_x,W)+b)
+```
+* for a normal (fully connected) layer
+```
+def normal_full_layer()
+```
