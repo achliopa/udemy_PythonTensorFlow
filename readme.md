@@ -1217,7 +1217,7 @@ def init_bias(shape):
 def conv2d(x,W):
 	# input tensor x --> [batch,H,W,Channels]
 	# kernel W --> [filter H, filter W, Channels IN, Channels OUT]
-	return tf.nnconv2d(x,W,strides=[1,1,1,1],padding='SAME')
+	return tf.nn.conv2d(x,W,strides=[1,1,1,1],padding='SAME')
 ```
 * for subsampling or pooling we use again tensorflow conveninece function with a wrapper like before. size is the size of the kernel window. i dont care about batch and color so i put 1 in these indexes
 ```
@@ -1230,10 +1230,537 @@ def max_pool_2by2(x):
 ```
 def convolutional_layer(input_x,shape):
 	W = init_weights(shape)
-	b = init_bias([shape[3]])
-	return tf.nn.relu(conv2d(input_x,W)+b)
+	b = init_bias([shape[3]])   
+def normal_full_layer(input_layer,size):
+	input_size = int(input_layer.get_shape()[1])
+	W = init_weights([input_size,size])
+	b = init_bias([size])
+	return tf.matmul(input_layer,W) + b
 ```
-* for a normal (fully connected) layer
+* the most difficult part is to keep track of the dimensions
+* we create our placeholders
 ```
-def normal_full_layer()
+x = tf.placeholder(tf.float32,shape=[None,784])
+y_true = tf.placeholder(tf.float32,shape=[None,10])
 ```
+* we want to reshape the flattened out array into an image again, 1 is for the 1 greyscale channel
+```
+x_image = tf.reshape(x,[-1,28,28,1])
+```
+* we start building the layers foir the network, we provide the shape of weight tensor (5x5 convolutional layer, 32 feats for every 5by5 patch) 1 is for input channels (grayscale),332 are the feats or output channel
+```
+convo_1 = convolutional_layer(x_image,shape=[5,5,1,32])
+convo_1_pooling = max_pool_2by2(convo_1)
+```
+* second layer group *32 input channel = the output feats from prev one. to make the flat image we use 7x7x64 ,7x7 as our image was pooled 2 times by 2 so reduced to 1/4 of 28. 64 are the feats
+```
+convo_2 = convolutional_layer(convo_1_pooling,shape=[5,5,32,64])
+convo_2_pooling = max_pool_2by2(convo_2)
+convo_2_flat = tf.reshape(convo_2_pooling,[-1,7*7*64])
+full_layer_one = tf.nn.relu(normal_full_layer(convo_2_flat,1024))
+```
+* we do the dropout to improve results (in fully networked network). we use a holding probability placeholder to pass it as a param 
+```
+hold_prob = tf.placeholder(tf.float32)
+full_one_dropout = tf.nn.dropout(full_layer_one,keep+prob=hold_prob)
+y_pred = normal_full_layer(full_one_dropout,10)
+```
+* we have all the layers in place. we now need our cost function and optimizer
+
+### Lecture 50 - CNN MNIST Code Along: Part Two
+
+* loss function (cross_entropy)
+```
+cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_withlogits(labels=y_true,logits=y_pred))
+```
+* we implement our Dm optimizer
+```
+optimizer = tf.train.AdamOptimizer(learning_rate=0.001)
+train = optimizer.minimize(cross_entropy)
+```
+* we init our vars
+```
+init = tf.global_variables_initializer()
+```
+* we define our sessions
+```
+steps = 5000
+
+with tf.session() as sess:
+
+	sess.run(init)
+
+	for i in range(steps):
+		batch_x, batch_y = mnist.train.next_batch(50)
+		sess.run(train,feed_dict={x=batch_x,y_true:batch_y,hold_prob:0.5})
+
+		if i%100 == 0:
+
+			print("ON STEP: {}".format(i))
+			print("ACCURACY: ")
+			matches = tf.equal(tf.argmax(y_pred,1),tf.argmax(y_true,1))
+			acc = tf.reduce_mean(tf.cast(matches,tf.float32))
+			print(sess.run(acc,feed_dict={x.mnist.test.images,y_true:mnis.test.labels,hold_prob:1.0}))
+			print('\n')
+```
+
+### Lecture 52 - Introduction to CNN Project
+
+* optional exercise to classify the [CIFAR-10](https://en.wikipedia.org/wiki/CIFAR-10) dataset
+* main challenge is dealing with data amd creating tensor batches and sizing
+* with MNIST batching was done automatically. now we need to do it
+* data is batched in folders
+
+### Lecture 53 - CNN Project Exercise Solution: Part One
+
+## Section 8 - Recurrent Neural Networks
+
+### Lecture 55 - RNN Theory
+
+* we ve used neural networks to solve classification and regression problems
+* we still havent seen how neural networks deal with sequential info (time series)
+* We need to learn about RNN to solve such problems
+	* RNN Theory
+	* Basic Manual RNN
+	* Vanishing Gradients
+	* LSTM and GRU units
+	* Time series with RNN
+	* TimesSeries Exercise
+	* Word2Vec
+* Example of Sequential Data
+	* time series data (sales)
+	* sentences
+	* audio
+	* car trajectories
+	* music
+* lets imagine a sequence [1,2,3,4,5,6]. are we able to predict a similar sequence shifted one time step into the future? => [2,3,4,5,6,7]
+* We can do this by using a recurent nerural network (RNN)
+* a Normal Neuron in a Feed Forward Network is like an logic unit (FPGA): gets inputs, aggregates them, produces an output based on an activation function result
+* A recurrent Neuron sends back the output back to itself. (mem unit)
+* If we unroll it over time. it looks like a daisy chain of cascading neurons (its the same neuron at different moments) with a feedback capability
+* cells that are a function of inputs from previous time steps are known as memory cells
+* RNNs are flexible in their inputs and outputs for both sequences and single vector values
+* we can build layers of Recurent neurons (instead of unrolling neurons over time , we unroll layers over time)we feedback  th output of the layer and add it to the inputs
+* unrolling a neuron or a layer shows its status over time. and the use of the output at a given moment to build together with the other inputs to to build the output of the next moment
+* We are building memory in this fashion as we use historical info to guide decisions
+* RNNs are very flexible in their inputs and outputs
+	* sequence input to sequence output (sequence shifted x steps into the future)
+	* sequence input to vector output (sequence of words as input and output like the class of the sentence (possitive,negative) as single vector)
+	* vector to sequence (pass an image get words describing this image, auto captions
+* We will explore how to build a simple RNN model in tensorflow manually
+* next we will see how to use TFs builtin RNN classes
+
+### Lecture 56 - Manual Creation of RNN
+
+* we ll create a 3 neuron RNN layer with TF
+* the main idea is to focus on the input format of the data
+* the layer we we wil build
+	* will have one input X that goes to the 3 neurons. the 3 neuron  layer produces one output Y. the output is fed back to the layer (all neurons). weigths will be applied both to input X and fedback output Y
+* we will start by running the RNN for 2 batches of data. t=0 and t=1
+* each RNN has 2 sets of weights: Wx for input weights on X, Wy for weights on output of original X
+* our data example: 
+	* 5 timestamps t=0,t=1,t=2,t=3,t=4
+	* 1st sample [The, brown, fox, is,quick]
+	* 2nd sample  [The,red,fox,jumped,high]
+	* words_in_dataset[0] = [The,The]
+	* words_in_dataset[1] = [brown,red]
+	* words_in_dataset[2] = [fox,fox]
+	* words_in_dataset[3] = [is,jumped]
+	* words_in_dataset[4] = [quick,high]
+	* num_batches = 5, batch_size = 2, time_steps = 5 
+* we feed based on timestamp (all samples)
+* we implement our simple example (with numerical samples) in jupyter
+* we import tensorflow numpy and matplotlib
+* we set our model constants `num_inputs = 2` `num_neurons=3` inputs are 2 one the x and one the feedback
+* we create a placeholder for each timestamp
+```
+x0 = tf.placeholder(tf.float32,[None,num_inputs])
+x1 = tf.placeholder(tf.float32,[None,num_inputs])
+```
+* we create our variables (weights)
+```
+Wx = tf.Variables(tf.random_normal(shape=[num_inputs,num_neurons]))
+Wy = tf.Variables(tf.random_normal(shape=[num_inputs,num_neurons]))
+b = tf.Variable(tf.zeros[1,num_neurons])
+```
+* we create our graphs (activation function is tanh)
+```
+y0 = tf.tanh(tf.matmul(x0,Wx)+b)
+```
+* up to now all is like simple NNs. we now add recurrency coding out a simple unrollern RNN
+```
+y1 = tf.tanh(tf.matmul(y0,Wy)+tf.matmul(x1,Wx)+b)
+```
+* we initialize vars `init = tf.global_variables_initializer()`
+* we create our dummy data for timestamp 0 and 1
+```
+x0_batch = np.array([[0,1],[2,3],[4,5]])
+x1_batch = np.array([[100,101],[102,103],[104,105]])
+```
+* we run our sesion
+```
+with tf.Session() as sess:
+	sess.run(init)
+	y0_output_vals, y1_output_vals = sess.run([y0,1],feed_dict={x0:x0_batch,x1:x1_batch})
+```
+* we see our y1 and y0 results.
+* our code doesnt scale well for larger timeseries with more steps as it will involve too much coding
+* tf has an api for this
+
+### Lecture 57 - Vanishing Gradients
+
+* backpropagation goes backwards from the output to the input layer propagating the error gradient
+* for deeper networks, issues can arise from backpropagation. Vanishing and exploding gradients
+* as we go back to the "lower" layers or "front" layers closer to the input gradients often get smaller, eventually causing wights to never change at lower laevels
+* the opposite may also occur. eg for actvation functions that use derivatives that on larger vals. gradients explode on the way back causing issues
+* We ll see why this issue occurs and how we fix it.
+* In next lecture we ll see how these issues affect RNN and how to use LSTM and GRU to fix them
+* The vanishing gradients happen because of the activation function choice. e.g sigmoid goes from 0 to 1 in an s-curve
+* backpropagation computes the gradients using the chain rule. so if we have a very large input (positive or negative) the slope or gradient is practically 0
+* the chain rule of bavckpropagation computing the gradients has the effect of multiplying n of these very small numbers (gradients) to compute to compute gradients of lower or front layers (further towards the input) so gradient is going to decrease exponenentialy. so front layers  train very very slowly
+* to solve it we attempt to use different activation methods (like RELU). RELU does not saturate positive values. but RELY for engatives outputs 0 so there is an issue
+* "Leaky" RELU has anegative linear slope for engative input nums
+* "Exponential Linear Unit (ELU)" also tries to solve these issues
+* Another solution is to perform batch normalization, where our model will normalize each batch using the batch mean and standard deviation
+* also "gradient clipping" where gradients are cut off beafore reaching a predermined limit (e.g cu off grtadients between -1 and 1) also mitigates the issue
+* RNN for time series present tehir own gradient challenges. we ll explore special neuron units atha help fix the issues
+
+### Lecture 58 - LSTM and GRU Theory
+
+* LSTM = Long Short Term Memory, GRU = Gated Recurrent Units
+* many of the solutions previously presented for vanishing gradients can be applied on RNNs (change activation function, batch normalizations etc...)
+* Because of the length of the time series input, they can slow down training
+* a possible solution is to shorten the time steps used for predictions. this makes the model worse at predicting longer trends
+* another issue RNN face is that after a while the network will begin to forget the first inputs, as information is lost at each step going through the RNN
+* we need some sort of 'long-term memory' for our networks
+* The LSTM cell was created (1997) to address these RNN issues
+* LSTM cell is more complex than a simple recurrent neuron
+	* it still has as inputs xt and ht-1 (previous timestep neuron output or 'HIDDEN STATE') but get one more input ct-1 (previous timestep cell state)
+	* it outputs ht (cell 'hideen state') and ct (cell state)
+	* 1st step (forget gate layer): f[t] = σ(W[f]dot[h[t-1],x[t]] + b[f]). in this step we decide what informationw e are going to forget from the cell state. we pass ht-1 and xt in a sigmoid function. its going to output a num between 0 and 1. 1 means keep Ct-1 and 0 means forget it
+	* 2nd step (decide what new information to store in the cell state): a) i[t] = σ(W[ι]dot[h[t-1],x[t]]+b[i]) b) ~C[t] = tanh(W[C]dot[h[t-1],x[t]] + b[C]). It is composed by 2 layers a) the sigmoid layer (input gate layer) b) the hyperbolic tanh layer which produces a vector of new candidate values that could be added to the state. 
+	* 2nd step a and b are multiplied to update the cell state (through addition) and 1st step is multiplied on cell state to produce the new state `C[t] = f[t]*C[t-1]+i[t]*~C[t]`
+	* 3rd step (decision on what to output as ht based on a filtered version of cell state): a) produce a filter value based on sigmoid on previous output o[t]=σ(W[o]dot[h[t-1],x[t]]+b[o]) b) use this filter with the hyperbolic tanh of cell state `h[t] = o[t]*tanh(C[t])`
+* There are variants of LSTm e.g with 'peepholes' that adds peep holes to all gates aka use also cell state in each sigmoid function
+* Another LSTM variant is GRU (gated recurrent unit) (2014). it simplifies things. combines forget and input gates toa single update gate itmerges cell state and hidden state (ht)
+* DepthGRU (DGRU) in 2015
+* Tensorflow comes with these neuron models built-into a nice API making it easy to swap them out
+* Up next we ll explore this TF RNN API for Timeseries prediction and generation
+
+### Lecture 59 - Introduction to RNN with TensorFlow API
+
+* we ll use TF build in tf.nn function API to solve sequence problems
+* our original simple sequnece problem involved  [1,2,3,4,5,6] as input asking us to predinct the sequence shifted one step forward => [2,3,4,5,6,7]
+* say we have a time series that looks like `[0,0.84,0.91,0.14,-0.75,-0.96,-0.28] its actually just sin(x) where nest time step is [0.84,0.91,0.14,-0.75,-0.96,-0.28,0.65]
+* we ll start creating a RNN that attempts to predict atimeseries shifted over 1 unit into the future
+* then we will attempt to generate new sequences with a seed series
+* we ll create simple class to generate sin(x) and also grab random batches of sin(x)
+* then the trained model will be given a time series and attempts to predict a time series shifted one time step ahead
+* afterwards we ll use the same model to generate much longer time series given a seed series. predict mush further into future time steps
+
+### Lecture 60 - RNN with TensorFlow: Part One
+
+* we import numpy, matplotlib and tensorflow
+* we create a python class that will initialize our data and send batched of data back based on a generator method (np.sin)
+* we add a convenience function to return the y_true values based on input series (sin())
+* we add a method to generate batches of these data
+* formating the data is important. we did this in our manual recurrnet network
+```
+class TimeSeriesData():
+	
+	def __init__(self,num_points,xmin,xmax):
+		self.xmin = xmin
+		self.xmax = xmax
+		self.num_points = num_points
+		self.resolution = (xmax-xmin)/num_points
+		self.x_data = np.linspace(xmin,xmax,num_points)
+		self.y_true = np.sin(self.x_data)
+
+	def ret_true(self,x_series):
+		return np.sin(x_series)
+
+	def next_batch(self,batch_size,steps,return_batch_ts=False):
+		
+		# Grab a random starting point for each batch of data
+		rand_start = np.random.rand(batch_size,1)
+		
+		# Convert to be on time series
+		ts_start = rand_start * (self.xmax - self.xmin -(steps*self.resolution))
+		
+		# Create a batch time series on the x axis
+		batch_ts =  ts_start + np.arange(0.0,steps+1) * self.resolution
+		
+		# Create the Y data for the time series x axis from previous step
+		y_batch = np.sin(batch_ts)
+		
+		# Formatting for  RNN
+		if return_batch_ts:
+			# time series + x axis 
+			return y_batch[:,:-1].reshape(-1,steps,1), y_batch[:,1:].reshape(-1,steps,1), batch_ts
+		else
+			# return time series and timeseries shifted one step into the future
+			return y_batch[:,:-1].reshape(-1,steps,1), y_batch[:,1:].reshape(-1,steps,1)
+```
+* we create time series data `ts_data = TimeSeriesData(250,0,10)`
+* we plot the timeseries data to the y values `plt.plot(ts_data.x_data,ts_data.y_true)`
+* we want our random batches to have 30 steps in them `num_time_steps =30`
+* we get our batch `y1,y2,ts = ts_data.next_batch(1,num_time_steps,True)` ts is a 2d matrix so we ened to flatten it out
+* we plot our batch `plt.plot(ts.flatten()[1:],y2.flatten(),'*')`
+* we will overlay our batch on the general plot
+```
+plt.plot(ts_data.x_data,ts_data.y_true,label='Sin(t)')
+plt.plot(ts.flatten()[1:],y2.flatten(),'*',label='Single Training Instance')
+plt.legend()
+plt.tight_layout()
+```
+* we create our training instance of data (x data) `train_inst = np.linspace(5,5+ts_data.resolution*(num_time_steps+1),num_time_steps+1)`
+* we plot our train data and their y_true vals (timeseries + shifted one)
+```
+plt.title('A TRAINING INSTANCE')
+plt.plot(train_inst[:-1],ts_data.ret_true(train_inst[:-1]),'bo',markersize=15,alpha=0.5,label='instance')
+plt.plot(train_inst[1:],ts_data.ret_true(train_inst[1:]),'ko',markersize=7,label='target')
+plt.legend()
+```
+* we give the instance points to the RNN and get the target points
+
+### Lecture 61 - RNN with TensorFlow: Part Two
+
+* we will now create the RNN model
+* we are going to build an rnn graph which is different fromt he default tf graph so we reset it `tf.reset_default_graph()`
+* we create our model constants `num_inputs = 1` as we have only one feature in the time series 'x'
+* we want 100 neurons per layer `num_neurons = 100`
+* we have only one output y `num_outputs = 1`
+* we define our learning rate `learning_rate = 0.0001`
+* our num of iterations `num_train_iterations = 2000`
+* the batch size will be 1 at a time `batch_size = 1`
+* we  define our placeholders
+```
+X = tf.placeholder(tf.float32,[None,num_time_steps,num_inputs])
+y = tf.placeholder(tf.float32,[None,num_time_steps,num_outputs])
+```
+* we will now create the RNN cell layer (many options available... lstm, gru etc). setting our num of usints to the num of neurons = 100 we will have 100 outputs. we want just 1. so we need a wrapper (output projection wrapper)
+```
+cell = tf.contrib.rnn.BasicRNNCell(num_units=num_neurons,activation=tf.nn.relu)
+cell = tf.contrib.rnn.OutputProjectionWrapper(cell,output_size=num_outputs)
+```
+* to get outputs and states of RNN cells `outputs, states = tf.nn.dynamic_rnn(cell,X,dtype=tf.float32)` this creates an RNN based on the cell we defined and get the outputs and steps (unrolling of rnn)
+
+* we use mean square error as loss function `loss = tf.reduce_mean(tf.square(outputs-y))`
+* use ADAM optimizer 
+```
+optimizer = tf.train.AdamOptimizer(learning-rate=learning_rate)
+train = optimizer.minimize(loss)
+```
+* we init globals `init = tf.global_variables_initializer()`
+* when we run Tf on GPU sometimes all gpu resources are taken from tf and the machine crashes so if we run on gpu we need to limit resource allocation `gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.75)`
+* we use saver to save our model for later use `saver = tf.train.Saver()`
+* we now run our session passing gpu confifg option
+```
+with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
+    sess.run(init)
+
+    for iteration in  range(num_train-iterations):
+
+    	X_batch, y_batch = ts_data.next_batch(batch_size, num_time_steps)
+    	sess.run(train,feed_dict={X:X_batch,y:y_batch})
+
+    	if iteration % 100 == 0:
+
+    		mse = loss.eval(feed_dict={X:X_batch,y:y_batch})
+    		print(iteration,"\tMSE: ".mse)
+
+    saver.save(sess,"./rnn_time_series_model_codealong")
+```
+* with the model trained we will use it to predict a timeseries one step into the future (we restore our model and use it)
+```
+with tf.Session() as sess:
+	saver.restore(sess,'./rnn_time_series_model_codealong')
+
+	X_new = np.sin(np.array(train_inst[:-1].reshape(-1,num_time_steps,num_inputs)))
+	y_pred = sess.run(outputs, feed_dict={X:X_new})
+```
+* we plot our resutls
+```
+plt.title('Testing the model')
+
+# Training Instance
+plt.plot(train_inst[:-1],np.sin(train_inst[:-1]),'bo'markersize=15,alpha=0.5, label="Training Instance")
+# Target to Predict (correct test vals)
+plt.plot(train_inst[1:], np.sin(train_inst[1:]), "ko", markersize=10, label="target")
+# Model prediction
+plt.plot(train_inst[1:],y_pred[0,:,0],'r.',markersize=10,label='predictions')
+```
+* initial our predictions are not good but get very accurate as we move on
+* we swap cell types repreating the procedure to check performance (GRUCell) changing the learnign rate. GRUCell is better even from the beginning
+
+### Lecture 63 - RNN with Tensorflow: Part Three
+
+* we will now generate a brand new sequence further far in time
+* we reuse our saved model. we seed it with a batch of zeros and see what happens. we have 30 zeros and then the generated values
+```
+with tf.Session() as sess:
+	saver.restore(sess,'./rnn_time_series_model_codealong')
+
+	# SEED ZEROS
+	zer_seq_seed = [0.0 for i in range(num_time_steps)]
+
+	for iteration in range(len(ts_data.x-data) - num_time_steps):
+
+		X_batch = np.array(zero_seq_seed[-num_time_steps:].reshape(1,num_time_steps,1))
+		y_pred = sess.run(outputs,feed_dict={X:X_batch})
+		zero_seq_seed.append(y_pred[0,-1,0])
+```
+* we plot it
+```
+plt.plot(ts_data.x_data,zero_seq_seed,'b-')
+plt.plot(ts_data.x_data[:num_time_steps], zero_seq_seed[:num_time_steps], "r", linewidth=3)
+plt.xlabel("Time")
+plt.ylabel("Value")
+```
+* what we get is something that looks like sinusoid but not actual sinusoid
+* we repeat passing actual sinusoid seed
+```
+with tf.Session() as sess:
+	saver.restore(sess,'./rnn_time_series_model_codealong')
+
+	# SEED with training instance
+	training_instance = list(ts_data.y_true[:30])
+
+	for iteration in range(len(ts_data.x-data) - num_time_steps):
+
+		X_batch = np.array(training_instance[-num_time_steps:].reshape(1,num_time_steps,1))
+		y_pred = sess.run(outputs,feed_dict={X:X_batch})
+		training_instance.append(y_pred[0,-1,0])
+```
+* we plot again and get a sinusoidal plot
+*Q:I don't understand the final shape of the X_batch in 3:18, why is (1,num_time_steps,1) ? what does it mean [ [ [......] ] ]  form? A: [[[]]] is used to indicate a tensor (basically an N-dimensional array), so we can have a dimension for batch, a dimension for a feature X, and a dimension for all the time steps. Basically think of it a single batch of a (n,1) array
+
+### Lecture 64 - Time Series Exercise Overview
+
+* our aim is to build an RNN that will sucessfully predict monthly milk production based of a real dataset
+* its a old dataset but has a trend and a seasonality so its good for evaluating a model
+* in time series there is no point in radom train test split
+* we need to scale the data (fit only to train data)
+* creating the batches is done.  to create the y_batch we need to cast the dataframe to a numpy array
+* in the generative session my train set is the train seed except the last 12 months `  train_seed = list(train_scaled[-12:])`
+
+### Lecture 66 - Quick note on Word2Vec
+
+* These are Optional series of Lectures descibing how to implement Word2Vec with Tensorflow. It does embeddings in a vector space for individual words with tensorflow
+* It is recommended we check out the [gensim](https://radimrehurek.com/gensim/models/word2vec.html) library if we are further intenrested in Word2Vec
+
+### Lecture 67 - Word2Vec Theory
+
+* now that we understand how to work with time series of data, we ll have a look in naother common series data source. words
+* For example a sentence can be ['Hi','how','are','you']
+* In classical NLP words are typically replaced by numbers indicating some frequency relationship to their documents e.g TFIDF 
+* in doing this we lose information about the relationship between the words themselves
+* NLP has 2 approaches: 
+	* Count based: frequency of words in corpus (e.g TFIDF)
+	* Predictive based: neighboring words are predicted based on a vector space (e.g Word2Vec)
+* One of the NNs most famous cased in NLP: The Word2Vec model created by Mikolov et al.
+* The goal of the Word2Vec model is to learn word embeddings by modeling each word as a vector in a n-dimensional space
+* But why use word-embeddings? Audio and Images are Dense datasets. 
+* when we take a count based approach to text data we end up with a sparce dataset. replacing words with numbers is not how brain works we lose the similarites between words (semantics)
+* Word2Vecs creates vector spaced models that represent (embed) words in a continuous vector space
+* with words represented as vectors we can perform vector mathematics on words (e.g check similarity 'cosine similarity', add/subtract vectors)
+* at the start of training each embedding is random, but through backpropagation the model will adjust the value of each vector in the given number of dimensions
+* More dimensions means more training, but also more 'information' per word
+* similar words will find their vectors closer together
+* even more impressively, the model may produce axes that represent concepts such as gender, verbs, singular vs plural e.g king - (man+woman) = queen or country-capital relations
+* How Word2Vec creates these word embeddings and how it learns them from raw text
+* Word2Vec comes in 2 flavors: 
+	* Continuous bag of Words (CBOW) model: typically better for smaller data sets
+	* Skip-Gram Model
+* algorithmicaly both models are very similar except on the way they end up redicting target words
+* CBOW model takes in source context words (the dog chews the) and then it attempts to find its prediction target => bone. good for shorter texts as it will smooth over a lot of the distributional info treating the entire context as one observation
+* Skip-Gram Model does the inverse: it attempts to predice source context words from target words bone => the dog chews the. good for larger texts
+* How CBOW trains the model? with a technique called Noise Contrastive Training
+	* The dog chews the w=? => bone[target word] vs [book,car,house,sun...] noise words
+	* words2vec does not need a full probabilistic model. we use a binary classification objectve (e.g logistic regression) to discriminate the real target words (Wt) from imaginary noise words (Wk) in the same context
+	* We have a projection layer (the cat sits on the ...), a noie classifier to pair the target word vs the noise words. we pass this from anumber of hidden layers and get some embeddings
+	* Target Word is predicted by maximizing J[NEG] = logQ[θ](D=1|w[t],h) _ k[n~P[noise]]E[logQ[θ](D=0|w[n],h)]
+	* Q[θ](D=1|w[t],h) is binary logistic regression in the probability that the word wt is in the context h in the dataset D parametrized by θ
+	* wn  are k contrastive words drown from noise distribution
+	* we only draw k words not all our dataset words,  so its computationaly efficient (the loss function scales only to the noise words) not to all words in teh vocabulary. we can get reasonable results with a small k
+	* the goal is to assign a high probability to correct words and low probability to noise words
+	* once we have vectors for each word we can visualize relationships by reducing dimensions from 150 to 2 using t-distributed stochastic neighbor embedding
+* we end up getting a plot of a cloud of words. points that are close to each other have siilarities
+
+### Lecture 68 - Word2Vec Code Along: Part One
+
+* tf documentation ahas an example implementation of word2vec
+* its a manual and tedious process
+* we do the imports
+```
+import collections
+import math
+import os
+import errno
+import random
+import zipfile
+
+import numpy as np
+from six.moves import urllib
+from six.moves import xrange 
+import tensorflow as tf
+```
+* we will grab the data as a zip  from a url
+* we set the url and target dir
+```
+data_dir = "word2vec_data/words"
+data_url = 'http://mattmahoney.net/dc/text8.zip'
+```
+* we implement  a method that unzips the data if we have them locally or downloads it and unzip it if we dont have them
+```
+
+```
+
+## Section 9 - Miscellaneous Topics
+
+### Lecture 71 - Deep Nets with TensorFlow Abstractions API: Part One
+
+* TensorFlow has many abstractions:
+	* TF Learn
+	* Keras
+	* TF-Slim
+	* Layers
+	* Estimator API
+	* and more...
+* We lose control in return of ease of use and simplicity
+* Many of these abstractions reside in TFs tf.contrib section
+* Typically libraries get developed and accepted into contrib and then 'graduate' to be accepted as part of standard Tensorflow
+* Its difficult to tell which TF abstraction are worth learning and which not
+* The speed of development of TensorFlow has caused abstractions to come and go quickly
+* We' ll focus on presenting the most common abstractions used: Estimator API, Keras (TF + Theano), Layers
+* We' ll focus on understanding how to use these abstractions to build deep densely connected neural networks
+* Using these abstractions makes it easy to stack layers on top of each other for simpler tasks
+* we ll start by exploring the datasets we will use. we use sklearns wine dataset `from sklearn.datasets import load_wine` we make a dataset out of it `wine_data = load_wne()` it is an sklearn bunch file much like a dictionary `wine_data.keys()` => dict_keys(['data', 'target', 'target_names', 'DESCR', 'feature_names'])
+* we check DESCR. its data about chemical analysis on samples from 3 types of wine from 3 wineries inm ITaly.
+* we ll try to do a classification task on these data
+* we build our dataset 
+```
+feat_data = wine_data['data']
+labels = wine_data['target']
+```
+* we perform a train-test split
+* we scale our data before passing them to the DNN abstractions
+
+### Lecture 72 - Deep Nets with TensorFlow Abstractions API: Estimator API
+
+* we recap what we have learned so far about estimator API
+* we import tensorflow
+* we import estimator `from tensorflow import estimator`
+* we check xtrain shape `X_train.shape` => (124,13) 13 feats by 124 samples
+* to use the estimator API we need to make feature columns. all feats are numeric vals so we can do it at once without labeling them first passing the shape of [13]. `feat_cols[tf.feature_column.numeric_column('x',shape=[13])]`
+* we go straight to the model `deep_model = estimator.DNNClassifier(hidden_units=[13,13,13],feature_columns=feat_cols,n_classes=3,optimizer=tf.train.GradientDescentOptimizer(learning_rate=0.01))`
+* we create the input function `input_fn = estimator.inputs.numpy_input_fn(x={'x':scaled_x_train},y=y_train,shuffle=True,batch_size=10,num_epochs=5)`
+* we train our model `deep_model.train(input_fn=input_fn,steps=500)`
+* we write downb the eval input function `input_fn_eval = estimator.inputs.numpy_input_fn(x={'x':scaled_x_test},shuffle=False)`
+* we get the predictions `preds = list(deep_model.predict(input_fn=input_fn_eval))`
+* we cast resultsin a list `predictions = [p['class_ids'][0] for p in preds]`
+* we use sklearn metrics (classification report ) to evaluate results
+
+### Lecture 73 - Deep Nets with TensorFlow Abstractions API: Keras
+
+* 
