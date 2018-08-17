@@ -1761,6 +1761,138 @@ labels = wine_data['target']
 * we cast resultsin a list `predictions = [p['class_ids'][0] for p in preds]`
 * we use sklearn metrics (classification report ) to evaluate results
 
-### Lecture 73 - Deep Nets with TensorFlow Abstractions API: Keras
+### Lecture 73 - Deep Nets with TensorFlow Abstractions API: [Keras](https://keras.io/)
+
+* keras is a python based high level neural network api able to run on top of TensorFlow, CNTK, or Theano
+* if we want to use it for multiple frameworks we need to download it as a separate library
+* we import tensorflow
+* we import keras models  `from tensorflow.contrib.keras import models`
+* we create a sequential model `dnn_keras_model = models.Sequential()`
+* we import layers from keras `from tensorflow.contrib.keras import layers` there are a bunch of layer types available
+* we choose a simple dense layer which we add to the model `dnn_keras_model.add(layers.Dense(units=13,input_dim=13,activation='relu'))` we specify the num of neurons per layer and inputs (feats)
+* we add more layers. for subsequent layers (hidden) we dont have to specify inputs `dnn_keras_model.add(layers.Dense(units=13,activation='relu'))`
+* we add a layer with softmax activation as output layer (units=3) like the output classes (hot encoded)
+* we compile our model . to do it we import more tools from keras `from tensorflow.contrib.keras import losses,optimizers,metrics,activations`
+* to see all our activation methods available we use `activations.+TAB` same for optimizers
+* hot encoded classes are sparce matrices and categorical so for loss func we use *sparse_categorical_crossentropy*
+* we compile our model `dnn_keras_model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])`
+* wew train our model passing train data `dnn_keras_model.fit(scaled_x_train,y_train,epochs=50)`
+* to get the predictions from our model we use predict_classes `predictions = dnn_keras_model.predict_classes(scaled_x_test)`
+* we import and print classification report from sklearn. we get 91% easy
+
+### Lecture 74 - Deep Nets with TensorFlow Abstractions API: Layers
+
+* currently Layers [API](https://www.tensorflow.org/api_docs/python/tf) is split between the tensorflow.contrib.layers and tensorflow.layers
+* tf.contrib.layers used to be more complete than tf.layers
+* at Tutotials => Layers there is a CNN example to solve MNIST classification problem
+* we ll solve the wine problem with layers
+* we import tensorflow
+* we will hot encode our results with pandas using get_dummies`onehot_y_train = pd.get_dummies(y_train)`
+* layers needs the data in numpy array format so we convert them `onehot_y_train = onehot_y_train.as_matrix()`
+* we do the same for test labels `onehot_y_test = pd.get_dummies(y_test).as_matrix()`
+* we set our model params
+```
+num_feat = 13
+num_hidden1 = 13
+num_hidden2 = 13
+num_outputs = 3
+learning_rate = 0.01
+```
+* we use contrib.layers lib to import fully connected model `from tensorflow.contrib.layers import fully_connected`
+* layers API stands halfway between tf and keras giving more control, but simplifies layer building
+* we define our placeholders
+```
+X = tf.placeholder(tf.float32,shape=[None,num_feat])
+y_true = tf.placeholder(tf.float32,shape=[None,num_outputs])
+```
+* we set our activation func `actf = tf.nn.relu`
+* we build our layers using layers api 
+```
+hidden1 = fully_connected(X,num_hidden1,activation_fn=actf)
+hidden2 = fully_connected(hidden1,num_hidden2,activation_fn=actf)
+output = fully_connected(hidden2,num_outputs)
+```
+* we use softmax for loss using pure tf `loss = tf.losses.softmax_cross_entropy(onehot_labels=y_true, logits=output)`
+* we set optimizer
+```
+optimizer = tf.train.AdamOptimizer(learning_rate)
+train = optimizer.minimize(loss)
+```
+* we init globals `init = tf.global_variables_initializer()`
+* we set 1000 trainind_steps and run the session
+```
+with tf.Session() as sess:
+    sess.run(init)
+    for i in range(training_steps):
+        sess.run(train,feed_dict={X:scaled_x_train,y_true: onehot_y_train })
+    
+    logits = output.eval(feed_dict={X:scaled_x_test})
+    
+    preds = tf.argmax(logits,axis=1)
+    
+    results = preds.eval()
+	
+```
+* the output will give the probability for each hot encoded class. so argmax will choose the class with highest probability along columns
+* we import sklearn classification report and print it `print(classification_report(results,y_test))`
+* when we get perfect results we skew params to see that model is actually working (reduce learning_steps)
+
+### Lecture 75 - [Tensorboard](https://www.tensorflow.org/guide/summaries_and_tensorboard)
+
+* Tensorboard is a visualization tool built in tensorflow
+* it allows visualize complex graphs inan organized manner
+* we import tensorflow
+* we ll build a simple graph session
+```
+a = tf.add(1,2)
+b = tf.add(3,4)
+c = tf.multiply(a,b)
+```
+* we run the session
+```
+with tf.Session() as sess:
+    print(sess.run(c))
+```
+* we get 21. for a simple graph like this its easy to see how this value came from.
+* for complex graphs is not that easy. visualization can assist our insight
+* to use it in our session (at the start) we add a summary output to a file passsing the folder path and what to store (session graph) `writer = tf.summary.FileWriter('./myoutput',sess.graph)`
+* after we finish our session operation we close the writer
+```
+with tf.Session() as sess:
+    writer = tf.summary.FileWriter('./myoutput',sess.graph)
+    print(sess.run(c))
+    writer.close()
+```
+* a tf events file is stored in our speced location. it has all the info for the graph
+* we open up terminal to run tensorboard (we need to activatea conda environment where tensorflow is installed)
+* we run it passing the folder with the event file `tensorboard --logdir='./myoutput'`
+* tensorboard runs as a webservice at `http://<computername>:6006`. we open it in a browser
+* OUR GRAPH IS ON SCREEN ready for analysis
+* we see our graph has aautomatically assigned names. in big graphs is not very helpful so we should name the at our preference
+* every tensorflow operation can be named. NO SPACES ALLOWED `a = tf.add(1,2,name='first_add')`
+* our named graph is on screen... (the old one is still there we need to clear event files we dont want from folder)
+* we can add scopes (organizational blocks) which are specked with `with tf.name_scope("OPERATION B"):` all operations that we write in this block are considered part of this namescope. the namescope in tensorboard graph appears as a box encaptulating the operations (if we click we see its contents)
+```
+with tf.name_scope("OPERATION_A"):
+    a = tf.add(1,2,name='first_add')
+    a1 = tf.add(100,200,name='a_add')
+    a2 = tf.multiply(a,a1)
+```
+* we can have nested scopes (subscopes)
+* tensorboard can do more than just visualizing graphs. we can visualize data
+* we ll visualize a histogram (cp from dovumentation)
+	* we make a placeholder
+	* we make a normal distribution (with a shifting mean) based on the placeholder val
+	* we record the histogram in a  file
+	* we create asession and start recording
+	* tf.summary.merge_all merges all summaries to aone file
+	* we do aloop calculating summaries basedon a feed dictionary
+* we lauch tensorboard (CAREFUL we have to be in same folder as the event fil ewhen we launch) `tensorboard --logdir='./'`
+* in that way we can visualize our weights as they move during training
+* there are full tensorboard tutorials available
+
+## Section 10 - AutoEncoders
+
+### Lecture 76 - Autoencoder basics
 
 * 
