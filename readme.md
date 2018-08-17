@@ -1689,9 +1689,9 @@ with tf.Session() as sess:
 
 ### Lecture 68 - Word2Vec Code Along: Part One
 
-* tf documentation ahas an example implementation of word2vec
-* its a manual and tedious process
-* we do the imports
+* tf documentation has an example implementation of word2vec (we ll cp that)
+* its a manual and tedious process (better use gensim)
+* we do the imports (cp them)
 ```
 import collections
 import math
@@ -1711,10 +1711,203 @@ import tensorflow as tf
 data_dir = "word2vec_data/words"
 data_url = 'http://mattmahoney.net/dc/text8.zip'
 ```
-* we implement  a method that unzips the data if we have them locally or downloads it and unzip it if we dont have them
+* we implement  a method (fetch word data) that unzips the data if we dont have them unzipped. or downloads it and unzip it if we dont have them
+* we pass url and local dir
+* check that firewall allows urlretrieve
+* we unzip encode anbs split the data....
+```
+def fetch_words_data(url=data_url, words_data=data_dir):
+    
+    # Make the Dir if it does not exist
+    os.makedirs(words_data, exist_ok=True)
+    
+    # Path to zip file 
+    zip_path = os.path.join(words_data, "words.zip")
+    
+    # If the zip file isn't there, download it from the data url
+    if not os.path.exists(zip_path):
+        urllib.request.urlretrieve(url, zip_path)
+        
+    # Now that the zip file is there, get the data from it
+    with zipfile.ZipFile(zip_path) as f:
+        data = f.read(f.namelist()[0])
+    
+    # Return a list of all the words in the data source.
+    return data.decode("ascii").split()
+```
+* we use the method to get the data `words = fetch_words_data()`
+* we check the length of our words list... `len(words` its 17Million!!!!!!!!!!!!!
+* we get a slice of the words to visualize them `words[9000:9040]` they actually are part of cohesive text documents (probably a whole book)
+* even though our words list contains sentences, we format it a little better for our understanding... still there is no punctuation.. its essentially a stream of words
+```
+for w in words[9000:9040]:
+    print(w,end=' ')
+```
+* we ll now build a word count and test it in some small test data. we use the collections library. we import it `from collections import Counter`
+* we make a dummy list `mylist = ['one','one','two']`
+* we pass it to the Counter `Counter(mylist)` (fit it) it gets the occurencies of each word (counter). returns a dictionary
+* and get the metrics `Counter(mylist).most_common(1)` returns a tuple
+* we can now apply it to our word list  and use it to build a vocabulary of 50000 unique words
+* we cast our vocab to a numpy array using list comprehention (ignoring the second couter param with tuple unpacking)
+* we build a vocab from the words witha  dictionary comprehension on an enumeration object ([(0, 'the'),.....]). code is the index and word the word
+* to build our data we use list comprehension on the dictionary, what we do is we make a list of the dictionary index for words in the word list
+```
+def create_counts(vocab_size=50000):
+	vocab = [] + Counter(words).most_common(vocab_size)
+	vocab = np.array([word for word,_ un vocab])
+	dictionary = {word:code for code,word in enumerate(vocab)}
+	data = np.array([dictionary.get(word,0) for word in words])
+	return data,vocab
+```
+* we get our data and vocab `data,vocabulary = create_counts(vocab_size=vocab_size)`
+* data has a size of 17MIllion and vocab 50000
+* how they work ? `words[100]` => 'interpretations' , `data[100]` => 4186 (index in vocab) , `vocab[4186]` => 'interpretations'
+* we now have to impelent a function to feed the model with batches of data (OMG!!!!!!)
+```
+def generate_batch(batch_size, num_skips, skip_window):
+    global data_index
+    assert batch_size % num_skips == 0
+    assert num_skips <= 2 * skip_window
+    batch = np.ndarray(shape=(batch_size), dtype=np.int32)
+    labels = np.ndarray(shape=(batch_size, 1), dtype=np.int32)
+    span = 2 * skip_window + 1  # [ skip_window target skip_window ]
+    buffer = collections.deque(maxlen=span)
+    if data_index + span > len(data):
+        data_index = 0
+    buffer.extend(data[data_index:data_index + span])
+    data_index += span
+    for i in range(batch_size // num_skips):
+        target = skip_window  # target label at the center of the buffer
+        targets_to_avoid = [skip_window]
+        for j in range(num_skips):
+            while target in targets_to_avoid:
+                target = random.randint(0, span - 1)
+            targets_to_avoid.append(target)
+            batch[i * num_skips + j] = buffer[skip_window]
+            labels[i * num_skips + j, 0] = buffer[target]
+    if data_index == len(data):
+        buffer[:] = data[:span]
+        data_index = span
+    else:
+        buffer.append(data[data_index])
+        data_index += 1
+  # Backtrack a little bit to avoid skipping words in the end of a batch
+    data_index = (data_index + len(data) - span) % len(data)
+    return batch, labels
+```
+* we set our model constants (embedding size is how many dimensions our embeding vector will have). more dimensions is more info and better results (but it costs more...)
+* skip window (how many words to consider to the left or to the right). the bigger we set it the longer it will take to train
+* num_skips how many times to reuse aninput to generate a label
+```
+batch_size = 128
+embedding_size = 150
+skip_window = 1
+num_skips = 2
+```
+* we now have to pick a random validation set to sample neiarest neighbors `valid_size = 16` (a random set of words to evaluate similarity on)
+* we ll pick samples from the head of the distribution. we are limiting the validation samples to words that have a low numeric id (the most frequent words)
+```
+valid_window=100
+valid_examples = np.random.choice(valid_window, valid_size, replace=False)
+```
+* we get a number of negative examples to sample `num_sampled = 64`
+* we set the learning rate of our model `learining_rate = 0.01`
+* we set our vocab size `vocabulary_size = 50000`
+* we now create our tf palceholders and constant ANd reset the graph
+```
+tf.reset_default_graph()
+train_inputs = tf.placeholder(tf.int32,shape=[None]) #just ints, no actual feats just intdex
+train_labels = tf.placeholder(tf.inst32,shape=[batch_size,1])
+valic-dataset = tf.constant(valid_examples,dtype=tf.int32)
+```
+* we create the vars and a loss function (NCE)
+* we randormly start our word embeddings
+```
+init_embeds = tf.random_uniform([vocabulary_size,embedding_size],-1.0,1.0)
+embedding = tf.Variable(init_embeds)
+embed = tf.nn.embedding_lookup(embeddings,train_inputs) # looks up ids in embedding tensors
 ```
 
+### Lecture 69 - Word2Vec part Two
+
+* we need to define our nCE loss function. we first set up the nce weights
 ```
+nce_weights = tf.Variable(tf.truncated_normal([vocabulary_size,embedding_size],stddev=1.0/np.sqrt(embedding_size)))
+nce_biases = tf.Variable(tf.zeros([vocabulary_size]))
+```
+* we calculate loss
+```
+loss = tf.reduce_mean(
+    tf.nn.nce_loss(nce_weights, nce_biases, train_labels, embed,
+                   num_sampled, vocabulary_size))
+```
+* we write the optimizer (Adam)
+```
+optimizer = tf.train.AdamOptimizer(learning_rate=1.0)
+trainer = optimizer.minimize(loss)
+```
+* Compute the cosine similarity between minibatch examples and all embeddings.
+```
+norm = tf.sqrt(tf.reduce_sum(tf.square(embeddings), axis=1, keep_dims=True))
+normalized_embeddings = embeddings / norm
+valid_embeddings = tf.nn.embedding_lookup(normalized_embeddings, valid_dataset)
+similarity = tf.matmul(valid_embeddings, normalized_embeddings, transpose_b=True)
+```
+* we initialize globals `init = tf.global_variables_initializer()`
+* he runs session on gpu so we adds config to limit mem use `gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)`
+* session implementation
+```
+num_steps = 200001
+
+with tf.Session(config=tf.ConfigProto(gpu_options=gpu_options)) as sess:
+    sess.run(init)
+    average_loss = 0
+    for step in range(num_steps):
+         
+        batch_inputs, batch_labels = generate_batch(batch_size, num_skips, skip_window)
+        feed_dict = {train_inputs : batch_inputs, train_labels : batch_labels}
+
+        # We perform one update step by evaluating the training op (including it
+        # in the list of returned values for session.run()
+        _, loss_val = sess.run([trainer, loss], feed_dict=feed_dict)
+        average_loss += loss_val
+
+        if step % 1000 == 0:
+            if step > 0:
+                average_loss /= 1000
+            # The average loss is an estimate of the loss over the last 1000 batches.
+            print("Average loss at step ", step, ": ", average_loss)
+            average_loss = 0
+
+       
+
+    final_embeddings = normalized_embeddings.eval()
+```
+* we ll try to visualize the results using t distribution stochastic neighbors embedding which allows us to transform the final embeddinds in 2d for visualizing. we chech the shape of final embeddings `final_embeddings.shape`
+and is (50000,150) so 50000 vectors of 150 dimensions
+* we use TSNE from sklearn `from  sklearn.manifold import TSNE`
+* we create an instance, n_components is the final dimensions, we use pca to initialize the process `tsne = TSNE(perplexity=30, n_components=2, init='pca', n_iter=5000)`
+* we will plot only 500 of the words `plot_only = 500`
+* we get the low dimension embeddings using the tsne. `low_dim_embs = tsne.fit_transform(final_embeddings[:plot_only,:])` for only yhe 500 first
+* we are now ready to plot we get the labels (words from vocabulary) `labels = [vocabulary[i] for i in range(plot_only)]`
+* we use a ready made plot function to do the plot (a scatterplot with labels for each dor)
+```
+def plot_with_labels(low_dim_embs, labels):
+    assert low_dim_embs.shape[0] >= len(labels), "More labels than embeddings"
+    plt.figure(figsize=(18, 18))  #in inches
+    for i, label in enumerate(labels):
+        x, y = low_dim_embs[i,:]
+        plt.scatter(x, y)
+        plt.annotate(label,
+                     xy=(x, y),
+                     xytext=(5, 2),
+                     textcoords='offset points',
+                     ha='right',
+                     va='bottom')
+```
+* we do the plot `plot_with_labels(low_dim_embs, labels)`
+* there is not much similarity as our training was weak with 5000 steps
+* we load the results of 200k steps `final_embeddings = np.load('trained_embeddings_200k_steps.npy')` and repeat to do the plot
 
 ## Section 9 - Miscellaneous Topics
 
@@ -1893,6 +2086,22 @@ with tf.name_scope("OPERATION_A"):
 
 ## Section 10 - AutoEncoders
 
-### Lecture 76 - Autoencoder basics
+### Lecture 76 - Autoencoder Basics
 
-* 
+* the autoencoder is a very simple neural network and will feel similar to a multi-layer perceptron model
+* it is designed to reproduce its input in the output layer
+* the key difference between an autoencoder and an MLP(MulitLayerPeerceptron) network is that the number of input neurons is equal to the number of the output neurons
+* A typical autoencoder starts wide gets narrow in the middle and widens up towards the end (like a flume) (starts with input neurons that get reduced towards the middle and the increase towards the output layer that has same num of neurons to the input)
+* to understand the autoencoder we simplify things  creating a network with a single hidden layer (input -> hidden -> output layer)
+* its a feed forward network (like mLP) trained to reproduce its input in the output layer
+* say we start with X inputs in the input layer. they get multiplied with weight W
+* in the hidden layer a method is applied h(X) and a bias i c is added . this first part is called ENcoder and is represented mathematically h(x) = sigm(b+Wx) as the method applied is the sigmoid function
+* the output of the hidden layer h(x) gets a weight Wout and goes to the output layer where another activation method is applied  and a bias is added. the second part is called Decoder as is represented mathematically dashX = sigm(c+Wout h(x))
+* both transformations applied are linear 
+* dash X is the autoencoder reproductions of the inputs X
+* a common practice in autoencoders as we try to reproduce ourt inputs in the outputs is to use tied Weigts where Wout is actially Wt or the transposed matrix of W. bias terms are noit tied, they are separated
+* the real trick happens in the hidden layer. its typically going to be smaller than the inputs (undercomplete autoencoder). hidden layer could be larger (overcomplete autoencoder)
+* as inputs are reduced to the hidden layer. this layer is going to have an internal representation that tries to maintain all the information of the input with less neurons
+* so we can use the hidden layer to extract meaningful features from the input or even do PCA with autoencoders
+* whats the whole purpose of the autoencoder nens is to train the hidden layer to get a compressed representation of our input data
+* we ll see later on stacked autoencoders with more hidden layers
