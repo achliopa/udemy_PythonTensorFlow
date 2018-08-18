@@ -2385,4 +2385,395 @@ for t in range(1000):
 
 ### Lecture 86 - Open AI Gym Observations
 
+* the evironment .step() function that we used returns useful objects for our agent. if print out what it returns it is a 4 element tuple *(array([ 0.15669391,  1.14642501, -0.25085722, -2.02634827]), 0.0, True, {})*
+* there are 4 key things that get returned back
+	* the observation variable: environment specific information representing environment observation. e.g (angles,velocity, game state etc). in our case is the 4d array we talked about
+	* the reward: amount of reward achieved by previous action. scale varies based off environment, but the agent should always strive to increase the reward level
+	* done: boolean indicating whether environment needs to be reset (e.g game is lost, pole tripped over ets) so an improvent whould be to add in  our for loop
+	```
+	if env.step(env.action_space.sample())[2] ==True:
+		env.reset()
+	```
+	* info: dictionary object with diagnostic information used for debugging
+* we add a code line to see the observations in action
+```
+print('INITIAL OBSERVATION')
+observation = env.reset()
+print(observation)
+```
+* what we get back *[-0.00200037 -0.00656086 -0.03343389  0.02732368]* is the cartpole initial position (our target)
+* we refactor our in loop code (remove render) and do tuple unpacking to get returned elements
+```
+action = env.action_space.sample()
+observation,reward,done,info = env.step(action)
+```
+* finally we print them out
+
+### Lecture 87 - Open AI Gym Actions
+
+* we ll create a simpl epolicy. move the cart to the right if the pole falls to the right and vice versa.
+* we know its going to fail as it does not take into account all params
+* we run ipython and in cli write
+```
+import gym
+env = gym.make('CartPole-v0')
+env.action_space
+>> Discrete(2)
+```
+* so total space of actions available is 2 (0:Move Cart Left,1:Move Cart Right)
+* our observation space and our reward range
+```
+In [4]: env.observation_space
+Out[4]: Box(4,)
+
+In [5]: env.reward_range
+Out[5]: (-inf, inf)
+```
+* our observation space is a box of 4 eleemtns (pole,cart, position velocity)
+* we ll now implement our hardcoded policy in a new source file (actions.py)
+* for 100 steps we ll render the env. Usually we DONT DO THAT when we TRAIN
+* we do tuple unpacking to get observation elements `cart_pos, cart_vel, pole_ang, ang_vel = observation`
+* we do a simple if base on pole_ang > 0  . pole angle is + if it leans to the right and - if it leans to the left. 0 is a straight line vertical to the cart. based on this we set the action. pass it to the environm,ent and upack the result
+```
+import gym
+
+env = gym.make('CartPole-v0')
+
+observation = env.reset()
+
+for t in range(1000):
+
+	env.render()
+
+	cart_pos, cart_vel, pole_ang, ang_vel = observation
+
+	if pole_ang > 0:
+		action = 1
+	else: 
+		action = 0
+
+	observation, reward, done, info = env.step(action)
+```
+* we run it ... it works a bit and fails MISERABLY
+
+### Lecture 88 - Simple Neural Network Game
+
+* we ll design a simple neural network that takes in the observation array passes it through a hidden layer and outputs 2 probabilities. one for left and one for right
+* we ll then choose a random action weighted by the probabilities
+* we ll have an input layer w/ 4 neurons one per observation elemnent. then one or more hidden layer of 4 neurons and an output layer of 1 (1 probaility as we have binary problem . probs are mutually exclusinve)
+* then we ll do multinomial sampling based on t probability weights and decide on an action (0 or 1)
+* we dont automatically choose the highest probability for our decision
+* thi is done to balance trying out new actions vs constantly choosing well known actions (avoid endless loop of same actions)
+* once we understand this network and code it out, we ll explore how to take into occount historic actions by learning about policy gradients
+* we create anew source file (simple_network.py)
+* we import tensorflow,gym and numpy
+* we code our neural network using tensoflow and layers API (nothing new)
+* the only new is the use of concat to make a new tensor by concatenating 2 and the multinoimial that takes 2 probabilities and desides on an output
+```
+import tensorflow as tf
+import gym
+import numpy as np
+
+num_inputs = 4
+num_hidden = 4
+num_outputs = 1 # Prob to go left
+
+# we use variance scaling initializer like in autoencoders from layers API probably because from 4 we go to 1
+initializer = tf.contrib.layers.variance_scaling_initializer()
+
+# we add our placeholder
+X = tf.placeholder(tf.float32,shape=[None,num_inputs])
+
+# we create our layers using Layer API
+hidden_layer_one = tf.layers.dense(X,num_hidden,activation=tf.nn.relu,kernel_initializer=initializer)
+hidden_layer_two = tf.layers.dense(hidden_layer_one,num_hidden,activation=tf.nn.relu,kernel_initializer=initializer)
+output_layer = tf.layers.dense(hidden_layer_two,num_outputs,activation=tf.nn.sigmoid,kernel_initializer=initializer)
+
+# from one prob (left) we make 2 mutually exclusive to feed in the multinomial
+probabilities = tf.concat(axis=1,values=[output_layer,1-output_layer])
+
+# bring back 1 action from the probabilities (output 0 or 1)
+action = tf.multinomial(probabilities,num_samples=1)
+
+init = tf.global_variables_initializer()
+
+epi = 50
+step_limit = 500
+env = gym.make('CartPole-v0')
+avg_steps = []
+
+
+with tf.Session() as sess:
+
+	sess.run(init)
+	# or init.run()
+
+	for i_episode in range(epi):
+
+		obs = env.reset()
+
+		for step in range(step_limit):
+
+			# tf wants its input as 1 dimensional array
+			action_val = action.eval(feed_dict={X: obs.reshape(1,num_inputs)})
+			# we do indexing to extract multinomial results action_val[0][0] is 0 or 1
+			obs,reward,done,info = env.step(action_val[0][0])
+
+			if done:
+				avg_steps.append(step)
+				print('DONE AFTER {} STEPS'.format(step))
+				break
+
+print("AFTER {} EPISODES, AVERAGE STEPS PER GAME WAS {}".format(epi,np.mean(avg_steps)))
+env.close()
+```
+* our average is 21 steps. we dont use loss function. we are not learnng based on reward. we just use our previous actions to predict the next. 
+* a better way is to use gpolicy gradients
+
+### Lecture 89 - Policy gradient Theory
+
+* Our previous neural network did not perform very well
+* this is because we arent considering the history of our actions. we are only considering a single previous action. and its immediate reward
+* this is often call an *assignement of credit* problem
+* which actions should be credited when the agent gets rewarded at time t. only actions at t-1 or the series of historical actions?
+* we solve this problem by applying a *discount rate*
+* We evaluate an action based off all the rewards that come after the action. not the first immediate reward
+* we choose a discount rate typically around 0.95 - 0.99
+* then we use this to apply a score to the action with the formula
+	* R is reward, D is dicount rate
+	* R[t=0]_R[t=1]D+R[t=2]D^2+R[t=3]D^3+...+R[t=n]D^n
+* Closer D is to 1, the more weight future rewards will have, Closer to 0,future rewards dont count too much as immediate rewards
+* choosing a Discount is dependent on our problem. if our actions have short or long term effects. in our problem they have short term effect
+* we emulate this process [Obs: Pole Goes Up, Action: Right1 , Reward: +10] => [Obs: Pole Goes Up, Action: left0 , Reward: +10] => [Obs: Pole Falls Ovewr, Action: Right1 , Reward: -100]
+* for our sequence the sum of discount awards is: `-70.75 = 10 + (0.95)*10 + (0.95)^2*(-100)` so this score is applied to the initial action taking into consideration the future consequences. so althought the immediade reward is positive the long term reward is negative
+* because of this delayed effect sometimes good actions may receive bad scores due to bad actions that follow, unrelated to their initial action
+* to counter this, we train over many episodes
+* we also must normalize the action scores by subtracting the mean and dividing by the standard deviation
+* these extra steps can significantly increase training time for complex environments
+* Implementing this Gradient policy with Python and TensorFlow can be complex
+* the steps we have to perform are
+	* neural network plays several episodes
+	* the optimizer will calculate the gradients (instead of calling minimize)
+	* compute each actions discounted and normalized score
+	* we then multiply the gradient vector by the actions score
+	* negative scores will create opposite gradients when multiplied
+	* calculate mean of the resulting gradient vector for gradient descent
+* Because of the increased complexity to implement Policy Gradient Techniques with TensorFlow, we should check additional resources for examples and explanations
+
+### Lecture 90 - Policy Gradient Code Along part One
+
+* we create a new source file (policy_gradient.py)
+* we import tensorflow gym and numpy
+* we setup our networks constants and add a learning rate for our gradient descent
+```
+num_inputs = 4
+num_hidden = 4
+num_outputs = 1 # Prob to go left
+
+learning_rate = 0.01
+```
+* we add the weight initializer from layers like before
+```
+initializer = tf.contrib.layers.variance_scaling_initializer()
+```
+* we add our input placeholder
+```
+X = tf.placeholder(tf.float32, shape = [None, num_inputs])
+```
+* we add our layers using layers API. we add 1 hidden layer and we split our output layer in 2 steps. one called logits builds the input and the second applies the sigmoid function. this is done for probing
+```
+hidden_layer = tf.layers.dense(X,num_hidden,activation=tf.nn.elu,kernel_initializer=initializer)
+logits = tf.layers.dense(hidden_layer,num_outputs)
+outputs =  tf.nn.sigmoid(logits)
+```
+* like before we build our multinoimial input using concat from the single output and apply multinomial to get our proposed action
+
+```
+# from one prob (left) we make 2 mutually exclusive to feed in the multinomial
+probabilities = tf.concat(axis=1,values=[output_layer,1-output_layer])
+# bring back 1 action from the probabilities (output 0 or 1)
+action = tf.multinomial(probabilities,num_samples=1)
+```
+
+* we build a metric we can train on (our action is a tensor so we need to convert it) 
+
+```
+y = 1.0 - tf.to_float(action)
+```
+
+* we build our loss function based on cross_entropy and our optimizer
+```
+cross_entropy = tf.nn.sigmoid_cross_entropy_with_logits(labels=y,logits=logits)
+optimizer = tf.train.AdamOptimizer(learning_rate)
+```
+
+* instead on training optimizer to minimize loss we will train on gradients computing based on cross-entropy
+```
+gradients_and_variables = optimizer.compute_gradients(cross_entropy) 
+```
+* we need them to multiply them with discount scores
+* now we compute the gradients but later we wll need to apply them
+* we make 3 variables for storing gradients
+```
+gradient = []
+gradient_placeholders = []
+grads_and_vars_feed = []
+```
+
+* we do tuple unpacking iterating in the computed gradients the optimizer will return and fill in our lists
+* a way to copy the shape of a tensor is with .get_shape()
+```
+for gradient,variable in gradients_and_variables:
+	gradients.append(gradient)
+	gradient_placeholder = tf.placeholder(tf.float32,shape=gradient.get_shape())
+	gradient_placeholders.append(gradient_placeholder)
+	grads_and_vars_feed.append((gradient_placeholder,variable))
+```
+* the actual training operation is to apply the gradients
+```
+training_op = optimizer.apply_gradients(grads_and_vars_feed)
+```
+* we initialize globals 
+* we set the saver `saver = tf.train.Saver
+* we cp two helper functions to get the discounted reward and one to produce the discounted and normalized rewards
+* the first one takes in rewards and applies discount rate
+* we pass in rewards
+* we create a zero array
+* we se cumulative rewards to 0
+* we iterate through the reward array in reverse order applying the discount rate and calculating the cumulative reward for each step
+```
+def helper_discount_rewards(rewards,discount_rate):
+	'''
+	Takes in rewards and applies discount rate
+	'''
+	discounted_rewards = np.zeros(rewards)
+	cumulative_rewards = 0
+	for step in reversed(range(len(rewards))):
+		cumulative_rewards = rewards[step] + cumulative_rewards*discount_rate
+		discounted_rewards[step] = cumulative_rewards
+	return discounted_rewards
+```
+* in the second function we pass in all rewards (for all games played) and the discount rate
+* we create an empty array 
+* for every reward in the list of rewards we append to the empty list the result of the previous helper function
+* then we flatten out the all discoutned rewards list (its a nested list initialy)
+* get the mean and standard deviation and perform the normalization of the all dicounted rewards list
+```
+def discount_and_normalize_rewards(all_rewards,discount_rate):
+	'''
+	Takes in all rewards, applies helper_discount function and then normalizes using mean and std
+	'''
+	all_discounted_rewards = []
+	for rewards in all_rewards:
+			all_discounted_rewards.append(helper_discount_rewards(rewards,discount_rate))
+
+	flat_rewards = np.concatenate(all_discounted_rewards)
+	reward_mean = flat_rewards.mean()
+	reward_std = flat_rewards.std()
+	return[(discounted_rewards - reward_mean)/reward_std for discounted_rewards in all_discounted_rewards]
+```
+
+### Lecture 91 - Policy Gradient Code Along part Two
+
+* we are now ready to create our session
+* we create our environment and set our train constants 650 iterations of 10 games of max 1000 steps (if we make it so far to keep the pol eup for 1000 actions!!!)
+```
+
+env = gym.make('CartPole-v0')
+
+num_game_rounds = 10
+max_game_steps = 10000
+num_iterations = 650
+discount_rate = 0.9
+```
+* we code our session
+```
+with tf.Session() as sess:
+    sess.run(init)
+
+
+    for iteration in range(num_iterations):
+        print("Currently on Iteration: {} \n".format(iteration) )
+
+        all_rewards = []
+        all_gradients = []
+
+        # Play n amount of game rounds
+        for game in range(num_game_rounds):
+
+            current_rewards = []
+            current_gradients = []
+
+            observations = env.reset()
+
+            # Only allow n amount of steps in game
+            for step in range(max_game_steps):
+
+                # Get Actions and Gradients
+                action_val, gradients_val = sess.run([action, gradients], feed_dict={X: observations.reshape(1, num_inputs)})
+
+                # Perform Action
+                observations, reward, done, info = env.step(action_val[0][0])
+
+                # Get Current Rewards and Gradients
+                current_rewards.append(reward)
+                current_gradients.append(gradients_val)
+
+                if done:
+                    # Game Ended
+                    break
+
+            # Append to list of all rewards
+            all_rewards.append(current_rewards)
+            all_gradients.append(current_gradients)
+
+        all_rewards = discount_and_normalize_rewards(all_rewards,discount_rate)
+        feed_dict = {}
+
+
+        for var_index, gradient_placeholder in enumerate(gradient_placeholders):
+            mean_gradients = np.mean([reward * all_gradients[game_index][step][var_index]
+                                      for game_index, rewards in enumerate(all_rewards)
+                                          for step, reward in enumerate(rewards)], axis=0)
+            feed_dict[gradient_placeholder] = mean_gradients
+
+        sess.run(training_op, feed_dict=feed_dict)
+
+    print('SAVING GRAPH AND SESSION')
+    meta_graph_def = tf.train.export_meta_graph(filename='/models/my-650-step-model.meta')
+    saver.save(sess, '/models/my-650-step-model')
+```
+* the most tricky part is applying the scores to the gradients
+* we use an indexed version of gradient placeholders
+* we take the average of a combined 2 list comprehesion
+* the trick is to match the correct reward with the correct gradient
+* we also create a metagraf model  and store it
+* we run a session on the trained model
+```
+env = gym.make('CartPole-v0')
+observations = env.reset()
+
+with tf.Session() as sess:
+
+	new_saver = tf.train.inport_meta_graph('./models/myNew-650-step-model.meta')
+	new.saver.restore(sess,'./models/myNew-650-step-model')
+	
+	for x in range(500):
+
+		end.render()
+		# tf wants its input as 1 dimensional array
+		action_val, gradients_val = sess.run([action,gradients],feed_dict={X:observations.reshape(1,num_inputs)})
+		# we do indexing to extract multinomial results action_val[0][0] is 0 or 1
+		observations,reward,done,info = env.step(action_val[0][0])
+
+		if done:
+			break
+
+env.close()
+```
+
+## Section 12 - GAN (Generative Adversarial Networks)
+
+### Lecture 92 - Introduction to GANs
+
 * 
