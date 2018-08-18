@@ -1304,14 +1304,47 @@ with tf.session() as sess:
 			print('\n')
 ```
 
-### Lecture 52 - Introduction to CNN Project
+### Lecture 51 - Introduction to CNN Project
 
 * optional exercise to classify the [CIFAR-10](https://en.wikipedia.org/wiki/CIFAR-10) dataset
 * main challenge is dealing with data amd creating tensor batches and sizing
 * with MNIST batching was done automatically. now we need to do it
 * data is batched in folders
 
-### Lecture 53 - CNN Project Exercise Solution: Part One
+### Lecture 52 - CNN Project Exercise Solution: Part One
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## Section 8 - Recurrent Neural Networks
 
@@ -2801,3 +2834,159 @@ env.close()
 * B) Mode Collapse
 	* the generator discovers some weakness in the discriminator
 	* generator continuously produces similar generated examples regardless of variation in input
+	* A way to fix it: adjust ttraining rate or changing layers of the discriminator in an attempt to make it better
+* GANs are very new technology. new technique keep being published
+* Only GPU powered computers will handle training a GAN. training can take days or weeks for certain data
+* We ll code out the most famous of a GAN. creating a GAN that generates numbers based off the MNIST dataset
+
+### Lecture 93 - GAN Code Along: Part One
+
+* we import tensorflow numpy and matplotlib
+* we grab mnist dataset
+```
+from tensorflow.examples.tutorials.mnist import input_data
+mnist = input_data.read_data_sets("../03-Convolutional-Neural-Networks/MNIST_data/",one_hot=True)
+```
+* we plot an image (we have to reshape it to 28x28) `plt.imshow(mnist.train.images[12].reshape(28,28),cmap='Greys')`
+* we will start building the 2 networks. for each one we will use a variable scope (like a tensorflow name scope)
+* we start with the generator. we implement it as a function. we pass in 2 arguments. z is the random noise and reuse is another param (if we set it to true we reuse the variable space):
+* the goal of variable scopes is to have modular sets of paramters
+* the names of theses var can be reuses as the scope is reused
+* the hidden layer will have 128 neurons... and the activation method is going to be leakyRELU
+```
+def generator(z,reuse=None):
+	with tf.variable_scope('gen',reuse=reuse):
+		hidden1 = tf.layers.dense(inputs=z,units=128,activation=tf.nn.leaky_relu(alpha=0.01))
+		output = tf.layers.dense(hidden1,units=784,activation=tf.nn.tanh)
+
+		return output
+```
+* similar for discriminator
+```
+def discriminator(X,reuse=None):
+	with tf.variable_scope('dis',reuse=reuse):
+		hidden1 = tf.layers.dense(inputs=X,units=128,activation=tf.nn.leaky_relu(alpha=0.01))
+
+		logits = tf.layers.dense(hidden1,units=1)
+		output = tf.layers.sigmoid(logits)
+
+		return output
+```
+
+### Lecture 94 - GAN Code Along: Part Two
+
+* we ll now move to placeholders, losses and, optimizers
+* we ll make 2 placeholders for z noice to genrator and actual imag to the discriminator
+```
+real_images = tf.placeholder(tf.float32,shape=[None,784])
+z = tf.placeholder(tf.float32,shape=[None,100])
+```
+* we instantiate our generator (passing the placeholder) when we use it in a session we ll pass a feed dictionary
+```
+G = generator(z)
+```
+* in discriminator we modify the func to return also the logits
+* we ll need 2 dicriminators. 1st will train on real images and second will get the generated data and try to discriminate fakes from reals
+* in the second call we have to set reuse tp true as we are re using the same scope
+```
+D_output_real , D_logits_real = discriminator(real_images)
+D_output_fake, D_logits_fake = discriminator(G,reuse=True)
+```
+* we define a loss function to calculate the losses (we use logits and labels)
+```
+def loss_func(logits_in,labels_in):
+	return tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits_in,labels=labels_in))
+```
+* we calculate loss 2 times a) dicriminator loss based on real data b) discriminator loss based on fake data
+* when we train on real data we want to treat all labels as real (1) while when we train on fake data train all labels as fake (0). we could use tf.ones and tf.zeros. but the want to have shape flexibility in our tensors so we use `tf.zeros_like(D_logits_real)` geting the shape of the actual tensor
+* to make the discriminator more generalized we apply smoothing on d_real labels (instead of 1 use 0.9)
+```
+D_real_loss = loss_func(D_logits_real,tf.ones_like(D_logits_real)* (0.9))
+D_fake_loss = loss_func(D_logits_fake,tf.zeros_like(D_logits_real))
+```
+* the total loss is `D_loss = D_real_loss + D_fake_loss`
+* the loss of the generator is `G_loss = loss_func(D_logits_fake,tf.ones_like(D_logits_fake))` is determined of how many of its fakes pass as real
+* we set a very small learning rate `learning_rate = 0.001`
+* we move to the optimizers
+* we use the follwoing code when we use multiple networks training against each other
+* we get all the variables created and treat them as trainable. inside their name some will have dis and some gen. (variable scope)
+* we get all variables and using list comprehension we split them into two groups based on teh variable scope name
+```
+tvars = tf.trainable_variables()
+
+d_vars = [var for var in tvars if 'dis' in var.name]
+g_vars = [var for var in tvars if 'gen' in var.name]
+
+print([v.name for v in d_vars])
+print([v.name for v in g_vars])
+```
+* we set the D_trainer using Adamoptimizer and same as G_trainer (using their respective vars)
+```
+D_trainer = tf.train.AdamOptimizer(learning_rate).minimize(D_loss, var_list=d_vars)
+G_trainer = tf.train.AdamOptimizer(learning_rate).minimize(G_loss, var_list=g_vars)
+```
+
+### Lecture 95 - GAN Code Along: Part Three
+
+* we are now ready to train the session
+* we set session vars. for good results we need ~500 eopchs (it takes time)
+```
+batch_size = 100
+epochs = 30
+init = tf.global_variables_initializer()
+saver = tf.train.Saver(var_list=g_vars)
+```
+* we ll save a sample per epoch for display (see progress)
+* well use classic division to determine how manyu batch sizes we have to pass
+* we go through the batches
+* we grab the batch
+* reshape our batch to be usable
+* we rescale image to make sense for hyperbolic tanh (it tries to remap each pixel value of the image from (0,1) to (-1,1))
+* we create some noise for generator
+* we run our optimizers. we dont save their outputs. we only care about generator output
+* we sample a generator output in each epoch passing in some noise
+```
+samples = []
+```
+* we move to the session
+```
+with tf.Session() as sess:
+	sess.run(init)
+
+	for epoch in range(epochs):
+		
+		num_batches = mnist.train.num_examples // batch_size
+		for i in range(num_batrches):
+
+			batch = mnist.train.next_batch(batch_size)
+			batch_images = batch[0].reshape((batch_size,784))
+			batch_images = batch_images*2 - 1
+
+			batch_z = np.random.uniform(-1,1,size=(batch_size,100))
+
+			_ = sess.run(D_trainer,feed_dict={real_images: batch_images,z:batch_z})
+			_ = sess.run(G_trainer,feed_dict={z:batch_z})
+
+		print("Currently on Epoch {} of {} total...".format(e+1, epochs))
+
+		sample_z = np.random.uniform(-1, 1, size=(1, 100))
+        gen_sample = sess.run(generator(z ,reuse=True),feed_dict={z: sample_z})
+        
+		samples.append(gen_sample)
+
+		# save the model
+```
+* we train
+* the results for 30 epochs are not so good
+* we have a trained model for 500 epochs  that we can use
+* we set our saver the  g_vars `saver = tf.train.Saver(var_list=g_vars)`
+* we restore it in a new session
+```
+new_samples = []
+with tf.Session() as sess:
+	saver.restore(sess,'./models/500_epoch_model.ckpt')
+	for x in range(5):
+		sample_z = np.random.uniform(-1,1,size=(1,100))
+        gen_sample = sess.run(generator(z,reuse=True),feed_dict={z:sample_z})
+		new_samples.append(gen_sample)
+```
