@@ -1316,36 +1316,6 @@ with tf.session() as sess:
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## Section 8 - Recurrent Neural Networks
 
 ### Lecture 55 - RNN Theory
