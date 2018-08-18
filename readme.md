@@ -2105,3 +2105,200 @@ with tf.name_scope("OPERATION_A"):
 * so we can use the hidden layer to extract meaningful features from the input or even do PCA with autoencoders
 * whats the whole purpose of the autoencoder nens is to train the hidden layer to get a compressed representation of our input data
 * we ll see later on stacked autoencoders with more hidden layers
+
+### Lecture 77 - Dimensinality Reduction with Linear Autoencoder
+
+* linear autoencoders can be used to perform principal component analysis (PCA) which allows us to reduce the dimensionality of our data
+* dimensionality reduction allows us to get a lower dimension representation of our data
+* the necoder creates new (fewer) features from the input features
+* e.g we can input a 3 dimensiona data set and output a 2 dimensional representation of it
+* we are not choosing 2 out of 3, but contruct 2 new features from combinations of the 3
+* we achieve this by using a linear autoencoder
+* linear autoencoders perform linear transformations using only weighjts and biases (no activation function). like what we have discussed befor but without the activation methods (sigmoid)
+* we ll implement it in jupyter
+* we import numpy and matplotlib
+* we use sklears make_blobs to generate blobs of data (100samples, 3 features, 2 clusters)
+```
+from sklearn.datasets import make_blobs
+data = make_blobs(n_samples=100, n_features=3,centers=2,random_state=101)
+```
+* our data have classes assigned as labels. we keep them so that we can evaluate that pca gives the same results if we run classification on its results. `data[0]` is the data feats `data[1]` are the labels
+* we scale our data
+```
+from sklearn.preprocessing import MinMaxScaler
+scaler = MinMaxScaler()
+scaled_data = scaler.fit_transform(data[0])
+```
+* we use indexing to build our feats coordinates lists for 3d ploting
+```
+data_x = scaled_data[:,0]
+data_y = scaled_data[:,1]
+data_z = scaled_data[:,2]
+```
+* to plot in 3d we import s matlplotlib library `from mpl_toolkits.mplot3d import Axes3D`
+* we plot the axes and then do scatterplot on the axes (3d scatterplot) and use the class to color them. they are clearly clustered
+```
+fig = plt.figure()
+ax = fig.add_subplot(111,projection='3d')
+ax.scatter(data_x,data_y,data_z,c=data[1])
+```
+* for better 3d plotting we can use plotly
+* we will now build the autoencoder
+* we import tensorflow
+* we ll use the Layers API to build a fully connected model `from tensorflow.contrib.layers import fully_connected`
+* we set our constants
+```
+num_inputs = 3
+num_outputs = 3
+num_hidden = 2
+learning-rate = 0.01
+```
+* we create a placeholder for input (PCA is a n unsupervized task)
+```
+X = tf.placeholder(tf.float32,shape=[None,num_inputs])
+```
+* we build our layers
+```
+hidden = fully_connected(X,num_hidden,activation_fn=None)
+outputs = fully_connected(hidden,num_outputs,activation_fn=None)
+```
+* we implement the loss function (MSE)
+```
+loss = tf.reduce_mean(tf.square(outputs-X)) 
+```
+* we use adam optimizer to reduce loss
+```
+optimizer = tf.train.AdamOptimizer(learning_rate)
+train  = optimizer.minimize( loss)
+```
+* we initialize globals `init = tf.global_variables_initializer()`
+* we run our session
+```
+num_steps = 1000
+with tf.Session() as sess:
+	sess.run(init)
+	# train
+	for iteration in range(num_steps):
+		sess.run(train,feed_dict={X: scaled_data})
+	# ask for hidden layer output (2d output)
+	output_2d = hidden.eval(feed_dict={X:scaled_data})
+```
+* we plot our output in 2d scatterplot in matplotlib
+```
+plt.scatter(output_2d[:,0],output_2d[:,1],c=data[1])
+```
+
+### Lecture 78 - Linear Autoencoder PCA Exercise
+
+* very similar to previous codealong (more dimensions) 30 dimensions to 2
+
+### Lecture 80 - Stacked Autoencoder
+
+* we ll use a stacked autoencoder on the MNIST dataset
+* we import numpy,matplotlib
+* we import tensorflow
+* we import the mnist dataset (we pont to the predownloaded folder to only extract)
+```
+from tensorflow.examples.tutorials.mnist import input_data
+mnist = input_data/read_fata_sets('../03-Convolutional-Neural-Networks/MNIST_data/',one_hot=True)
+```
+* we reset graphs `tf.reset_default_graph()`
+* we set the params for the stacked autoencoder. we start with 784 (28*28pixels) => then half 392 => half 196 then increase again. if we decrease the neurons too much we might not be able to reconstruct correctly
+```
+num_inputs = 784
+neurons_hid1 = 392
+neurons_hid = 196
+neurons_hid3 = neurons_hid1
+num_outputs = num_inputs
+
+learning_rate = 0.01
+```
+* we set our activation function `actf = tf.nn.relu`
+* we add a placeholder for X `X = tf.placeholder(tf.float32, shape=[None, num_inputs])`
+* we now have to add weighs for our inputs and internal layers. up to now we used to use random generators to initialize weights or even constants. now the sacale of these weights is different as neurons get divided in half at each step
+* variance_scaling_initializer is an initializer that adapts its scale to the shape of its weights tensors. it does a much better training in autoencoders as it adapts its distribution to the size
+```
+initializer = tf.variance_scaling_initializer()
+```
+* we use it to produce weights
+```
+w1 = tf.Variable(initializer([num_inputs,neurons_hid1]), dtype=tf.float32)
+w2 = tf.Variable(initializer([neurons_hid1, neurons_hid2]), dtype=tf.float32)
+w3 = tf.Variable(initializer([neurons_hid2, neurons_hid3]), dtype=tf.float32)
+w4 = tf.Variable(initializer([neurons_hid3, num_outputs]), dtype=tf.float32)
+```
+* we set the biases to zero
+```
+b1 = tf.Variable(tf.zeros(neurons_hid1))
+b2 = tf.Variable(tf.zeros(neurons_hid2))
+b3 = tf.Variable(tf.zeros(neurons_hid3))
+b4 = tf.Variable(tf.zeros(num_outputs))
+```
+* we set our activation function
+```
+act_func = tf.nn.relu
+```
+* we build our layers
+```
+hid_layer1 = act_func(tf.matmul(X,w1)+b1)
+hid_layer2 = act_func(tf.matmul(hid_layer1,w2)+b2)
+hid_layer3 = act_func(tf.matmul(hid_layer2,w3)+b3)
+output_layer = tf.matmul(hid_layer3,w4)+b4
+```
+* we define the loss function
+```
+loss = tf.reduce_mean(tf.square(output_layer-X))
+```
+* same for optimizer (adam) + initializer
+```
+optimizer = tf.train.AdamOptimizer(learning_rate)
+train = optimizer.minimize(loss)
+init = tf.global_variables_initializer()
+```
+* we are ready to run our session (save first)
+```
+saver = tf.train.Saver() 
+num_epochs = 5
+batch_size = 150
+with tf.Session() as sess:
+	sess.run(init)
+
+	for epoch in range(num_epochs):
+
+		num_batches = mnist.train.num_examples // batch_size
+
+		for iteration in range(num_batches):
+
+			X_batch, y_batch = mnist.train.next_batch(batch_size)
+			sess.tun(train,feed_dict={X:X_batch})
+		
+		training_loss=loss.eval(feed_dict={X:X_batch})
+		print("Epoch {} Complete. Training Loss: {}".format(epoch,training_loss))
+
+
+	saver.save(sess, "./stacked_autoencoder.ckpt")
+```
+* `//` division cuts decimal points (classic division)
+* we get 10 test images `num_test_images = 10` and pass them in a session where we use the trained model to get hteir output... and see how well our autoencoder performs (we restore the saved model)
+```
+with tf.Session() as sess:
+	
+	saver.restore(sess,"./stacked_autoencoder.ckpt")
+
+	results = output_layer,eval(feed_dict={X:X:mnist.test.images[:num_test_images]})
+```
+* with the results in hand we use matplotlib to plot and compare (29 subplots in 10 cols and 2 rows)
+```
+f,a = plt.subplots(2,10, figsize=(20,4))
+for i in range(num_test_images):
+	a[0][i].imshow(np.reshape(mnist.test.images[i],(28,28)))
+	a[0][i].imshow(np.reshape(results[i],(28,28)))
+```
+* VERY GOOD RESULTS
+* a technique to improve autoencoder performance is to evaluate the results of the hidden layers compared to input
+
+## Section 11 - Reinforcement Learning with OpenAI Gym
+
+### Lecture 81 - Introduction to Reinforcement Learning with OpenAI Gym
+
+* 
