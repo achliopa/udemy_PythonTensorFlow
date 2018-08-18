@@ -1313,7 +1313,241 @@ with tf.session() as sess:
 
 ### Lecture 52 - CNN Project Exercise Solution: Part One
 
+* first we need to organize and get the data
+*  we can download them (they are already downloaded in course repo)
+* we pass as string the dir of the data on our machine `CIFAR_DIR = '~/workspace/udemy/tensorFlow/CourseRepo/03-Convolutional-Neural-Networks/cifar-10-batches-py/'`
+* each batch is a python pickled object (cPickle library)
+* we use unpickle func to open these files (sped from cPickle doc)
+```
+def unpickle(file):
+    import pickle
+    with open(file, 'rb') as fo:
+        cifar_dict = pickle.load(fo, encoding='bytes')
+    return cifar_dict
+```
+* we have the list of dir names that are in the root data folder
+```
+dirs = ['batches.meta','data_batch_1','data_batch_2','data_batch_3','data_batch_4','data_batch_5','test_batch']
+```
+* we set the batch indexes `all_data = [0,1,2,3,4,5,6]`
+* we can use enumerate but we choose to zip the lists and iterate through them upickling the data ifromn teh subfolders to the list
+```
+for i,direc in zip(all_data,dirs):
+    all_data[i] = unpickle(CIFAR_DIR+direc)
+```
+* to each item in the list we assign a variable for easy access
+```
+batch_meta = all_data[0]
+data_batch1 = all_data[1]
+data_batch2 = all_data[2]
+data_batch3 = all_data[3]
+data_batch4 = all_data[4]
+data_batch5 = all_data[5]
+test_batch = all_data[6]
+```
+* we check out the data labels in the meta batch `batch_meta` batch size is 10000 while the size of the image is 32*32*3 = 3072
+```
+{b'num_cases_per_batch': 10000,
+ b'label_names': [b'airplane',
+  b'automobile',
+  b'bird',
+  b'cat',
+  b'deer',
+  b'dog',
+  b'frog',
+  b'horse',
+  b'ship',
+  b'truck'],
+ b'num_vis': 3072}
+```
+* we check one of the batches (a dictionary) getting its keys `data_batch1.keys()` *dict_keys([b'batch_label', b'labels', b'data', b'filenames'])*
+* data is a 10000*3072 numpy array . each row stores a 32*32 color image (3 channels) flattened out (r,g,b channels in seq)
+* labels is a 10000 array of nums 0-9 for labels (hot encoded)
+* batch meta dictionary has label names
+* our first task is to display an image using matplotlib
+* we need to format it (reshape) for viewing and transpose channels
+* we import matplotlib and numpy
+* we get data from first batch `X = data_batch1[b'data']`
+* we reshape them and transpose channels for viewing `X = X.reshape(10000, 3, 32, 32).transpose(0,2,3,1).astype("uint8")` transpose makes 10000,3,32,32 => 10000,32,32,3) as imshow wants 32,32,3
+* we imshow 1st row `plt.imshow(X[0])` its a frog
+* we go through the helper functions (already coded)
+* one_hot_encode takes a vector of labels (10 possible vals) and the num of vals 
+* it returns a 2d arrays of hot-encoded labels
+```
+def one_hot_encode(vec, vals=10):
+    '''
+    For use to one-hot encode the 10- possible labels
+    '''
+    n = len(vec)
+    out = np.zeros((n, vals))
+    out[range(n), vec] = 1
+    return out
+```
+* cifarhelper class does lots of things `class CifarHelper():`
+* its constructor
+	* grabs a list of all the batches for training and the test batch
+	* initializes empty variables train-test images-labels
+```
+    def __init__(self):
+        self.i = 0
+        
+        # Grabs a list of all the data batches for training
+        self.all_train_batches = [data_batch1,data_batch2,data_batch3,data_batch4,data_batch5]
+        # Grabs a list of all the test batches (really just one batch)
+        self.test_batch = [test_batch]
+        
+        # Intialize some empty variables for later on
+        self.training_images = None
+        self.training_labels = None
+        
+        self.test_images = None
+        self.test_labels = None
+```
+* set_up_images function sets ups images for training with reshaping and trasposition like before
+	* it vertically stacks training images (50000 using 5 batches of 10000)
+	* it reshapes and normalizes images (divide by 255)
+	* repeat for test images
+```
+    def set_up_images(self):
+        
+        print("Setting Up Training Images and Labels")
+        
+        # Vertically stacks the training images
+        self.training_images = np.vstack([d[b"data"] for d in self.all_train_batches])
+        train_len = len(self.training_images)
+        
+        # Reshapes and normalizes training images
+        self.training_images = self.training_images.reshape(train_len,3,32,32).transpose(0,2,3,1)/255
+        # One hot Encodes the training labels (e.g. [0,0,0,1,0,0,0,0,0,0])
+        self.training_labels = one_hot_encode(np.hstack([d[b"labels"] for d in self.all_train_batches]), 10)
+        
+        print("Setting Up Test Images and Labels")
+        
+        # Vertically stacks the test images
+        self.test_images = np.vstack([d[b"data"] for d in self.test_batch])
+        test_len = len(self.test_images)
+        
+        # Reshapes and normalizes test images
+        self.test_images = self.test_images.reshape(test_len,3,32,32).transpose(0,2,3,1)/255
+        # One hot Encodes the test labels (e.g. [0,0,0,1,0,0,0,0,0,0])
+        self.test_labels = one_hot_encode(np.hstack([d[b"labels"] for d in self.test_batch]), 10)
+```
+* next_batch function works like next_batch_image works for MNIST
+	* note that we assume a batch size of 100!!!!!!!!!!!!!!!!!!
+```
+    def next_batch(self, batch_size):
+        # Note that the 100 dimension in the reshape call is set by an assumed batch size of 100
+        x = self.training_images[self.i:self.i+batch_size].reshape(100,32,32,3)
+        y = self.training_labels[self.i:self.i+batch_size]
+        self.i = (self.i + batch_size) % len(self.training_images)
+        return x, y
+```
+* we prep our data
+```
+ch = CifarHelper()
+ch.set_up_images()
+```
 
+### Lecture 53 - CNN Project Exercise Solution: Part Two
+
+* we are now ready to create our model
+* we import tensorflow
+* we create the placeholders for our input_data and labels
+```
+x = tf.placeholder(tf.float32,shape=[None,32,32,3])
+y_true = tf.placeholder(tf.float32,shape=[None,10])
+```
+* we add one more placeholder to pass the probability for the dropout (we ll use dropout to imporve our predictions)
+```
+hold_prob=tf.placeholder(tf.float32)
+```
+* we cp the helper functions (for layer building) from MNIST
+```
+def init_weights(shape):
+    init_random_dist = tf.truncated_normal(shape,stddev=0.1)
+    return tf.Variable(init_random_dist)
+
+def init_bias(shape):
+    init_bias_vals = tf.constant(0.1,shape=shape)
+    return tf.Variable(init_bias_vals)
+
+def conv2d(x,W):
+    return tf.nn.conv2d(x,W,strides=[1,1,1,1],padding='SAME')
+
+def max_pool_2by2(x):
+    return tf.nn.max_pool(x,ksize=[1,2,2,1],strides=[1,2,2,1],padding='SAME')
+
+def convolutional_layer(input_x, shape):
+    W = init_weights(shape)
+    b = init_bias([shape[3]])
+    return tf.nn.relu(conv2d(input_x, W) + b)
+
+def normal_full_layer(input_layer, size):
+    input_size = int(input_layer.get_shape()[1])
+    W = init_weights([input_size, size])
+    b = init_bias([size])
+    return tf.matmul(input_layer, W) + b
+```
+* we start to build our layers. they are similar to MNIST (but we have more color channels)
+* our 1st convolutiona filter is 4*4
+```
+convo_1 = convolutional_layer(x_image,shape=[4,4,3,32])
+convo_1_pooling = max_pool_2by2(convo_1)
+```
+* we do layer 2
+```
+convo_2 = convolutional_layer(convo_1_pooling,shape=[4,4,32,64])
+convo_2_pooling = max_pool_2by2(convo_2)
+```
+* we flattent it out layer
+```
+convo_2_flat = tf.reshape(convo_2_pooling,[-1,8*8*64])
+```
+* we create the full layer
+```
+full_layer_one = tf.nn.relu(normal_full_layer(convo_2_flat,1024))
+```
+* we add the dropout layer
+```
+full_one_dropout = tf.nn.dropout(full_layer_one,keep_prob=hold_prob)
+```
+* our output will be 10
+```
+y_pred = normal_full_layer(full_one_dropout,10)
+```
+* we use cross_entropy loss
+```
+cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=y_true,logits=y_pred))
+```
+* we add the adamoptimizer and usi it to train in minimizing loss
+```
+optimizer = tf.train.AdamOptimizer(learning_rate=0.001)
+train = optimizer.minimize(cross_entropy)
+```
+* we initialize globals
+```
+init = tf.global_variables_initializer()
+```
+* we code the session
+```
+with tf.Session() as sess:
+    sess.run(init)
+    for i in range(5000):
+        batch = ch.next_batch(100)
+        sess.run(train,feed_dict={x:batch[0],y_true:batch[1],hold_prob:0.5})
+        
+        if i%100 ==0:
+            print('Currently on step {}'.format(i))
+            print('Accuracy is:')
+            # Test the Train Model
+            matches = tf.equal(tf.argmax(y_pred,1),tf.argmax(y_true,1))
+
+            acc = tf.reduce_mean(tf.cast(matches,tf.float32))
+
+            print(sess.run(acc,feed_dict={x:ch.test_images,y_true:ch.test_labels,hold_prob:1.0}))
+            print('\n')
+```
+* laptop crashes so we reduce batch size
 
 
 ## Section 8 - Recurrent Neural Networks
