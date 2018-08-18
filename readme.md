@@ -2377,6 +2377,7 @@ print('It works!')
 * we use gyms .make() to create the environment `env = gym.make('CartPole-v0')` passing teh name of it. in this env we dont need to pass in addtional libs
 * we then have to reset the environment to its default state (0 location) `env.reset()`
 * we create a steps loop in which we render the environment and set the step by passing in an env. action_space.sample(). what this is it tells the env to take a random action from actions available to us and pass it to the environment. the result of it is to see a random movement on the cart-pole combination (4 vars)
+```
 for t in range(1000):
 	env.render()
 	env.step(env.action_space.sample())
@@ -2755,18 +2756,19 @@ observations = env.reset()
 
 with tf.Session() as sess:
 
-	new_saver = tf.train.inport_meta_graph('./models/myNew-650-step-model.meta')
-	new.saver.restore(sess,'./models/myNew-650-step-model')
+	new_saver = tf.train.import_meta_graph('./models/myNew-650-step-model.meta')
+	new_saver.restore(sess,'./models/myNew-650-step-model')
 	
 	for x in range(500):
 
-		end.render()
+		env.render()
 		# tf wants its input as 1 dimensional array
 		action_val, gradients_val = sess.run([action,gradients],feed_dict={X:observations.reshape(1,num_inputs)})
 		# we do indexing to extract multinomial results action_val[0][0] is 0 or 1
 		observations,reward,done,info = env.step(action_val[0][0])
 
 		if done:
+			print(x)
 			break
 
 env.close()
@@ -2776,4 +2778,26 @@ env.close()
 
 ### Lecture 92 - Introduction to GANs
 
-* 
+* GANs are new (2014) reported by ian Goodfellow et al.
+* GANs have the ability to generate new samples similar to the data they were trained on
+* for example creating new faces after being trained on large data sets of faces
+* eg after 100 epochs the network started generating its own faces
+* some of the results from NVIDIA using face generation with GANs are stunning
+* we ll go over how GANs work
+* we ll build two networks . a Generator (G) and a Discriminator (D)
+* these networks compete against each other
+* the real world analogy of GANs is that of the forger(Generator) Vs the detector(Discriminator)
+* Real Data provide real Sample Data
+* Latent Data through the generator provide Generated Examples
+* THe discriminator takes real data and trains and then determines if the generated data are real or fake
+* the generator trains to fool the discriminator
+* Eventually after a lot of training (and usually tuning 'hyperparameters') the generator will hopefully be able to generate examples indistinguishable from the real data
+* Coding a GAN ca be relatively simple. we essentially dcreate 2 separate nbetworks. the discriminator and the generator
+* What is not simple is the tuning of the hyperparameters and the training time involved
+* Potential problems with GANs
+* A) Discriminator Overpowering Generator
+	* sometimes the discriminator begins classifying all generated examples as fake
+	* A way to fixt that: may want to have discriminator output to be unscaled instead of sigmoid
+* B) Mode Collapse
+	* the generator discovers some weakness in the discriminator
+	* generator continuously produces similar generated examples regardless of variation in input
