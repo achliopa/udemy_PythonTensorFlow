@@ -2301,4 +2301,88 @@ for i in range(num_test_images):
 
 ### Lecture 81 - Introduction to Reinforcement Learning with OpenAI Gym
 
+* Reinforcement Learning: 
+	* it allows machines and software agents to automatically determine the ideal behaviour within a specific context in order to maximize its performance
+	* simple reward feedback is required fot he agent to learn its behaviour. this is known as the reinforcement signal
+	* there are many different types of algotithms that fall under Reinforcement Learning
+	* Not all of them require a framework like TensorFlow
+	* 4 main concerns: Agent, Environment, Action, Reward. All these connected in a loop
+	* Agent (our program) observes the environment , perfroms an action on the environemnt and checks the reward level (how well he performs in the environment)
+* Agent:
+	* our program or bot
+	* can receive inputs based off the enviroment
+	* performs actions
+* Environment:
+	* the actual setting the agent is interacting with
+	* often a game in examples, but it can be any real world or artificial environment
+	* we need to be able to rerpresent this environment in a way that the agent can understand (probably an array in the end)
+	* Previously it was very difficult to create environment that were easy to use and sharable
+	* Later on we'll see how OpenAI gym lib solves it (so we can focus on agents)
+* Action: 
+	* the actual interaction our agent will perform on the environment
+	* moving in an environment, choosing the next movein a game, etc
+* Reward:
+	* The metric that allows your agent to understand whether or not the previous sets of actions helped or hurt in its overall goal
+* THese 4 aspects are the pillars of Reinforcement Learning
+* OpenAI works with variables designed to fit within this framework and thus allows us to focus on model building
+* RL has many applications. games are an easy way to clearly show the major aspects of RL
+
+### Lecture 82 - Extra Resources for RL
+
+* [Wikipedia](https://en.wikipedia.org/wiki/Reinforcement_learning)
+* [Keras RL](https://github.com/matthiasplappert/keras-rl) much simpler to do RL in Keras than implement it manuall in TF
+* [Huge RL Algorithm Repo](https://github.com/dennybritz/reinforcement-learning)
+* [Berkeley Course on RL](http://rll.berkeley.edu/deeprlcourse/)
+* [Articles on Rl](https://medium.com/emergent-future/simple-reinforcement-learning-with-tensorflow-part-0-q-learning-with-tables-and-neural-networks-d195264329d0)
+* Books
+	* Richard S. Sutton and Andrew G. Barto. Reinforcement Learning. 
+	* Stuart J. Russell and Peter Norvig. Artificial Intelligence. A Modern Approach.
+	* Ian Goodfellow, Yoshua Bengio, and Aaron Courville. Deep Learning.
+
+### Lecture 83 - Intrduction to OpenAI Gym
+
+* OpenAI is a non-profit AI research company, discovering and enacting the path to safe artificial general intelligence
+* OpenAI Gym is a toolkit that aids in developing and comparing reinforcement learning algorithms
+* OpenAI Gym Library is a Python library with a collection of environments that you can use with your reinforcement learning algorithms
+* OpenAI Gym Service is a website and API where we can compare algorithm performance
+* official documentation in [Gym](gym.openai.com) [github](https://github.com/openai/gym)
+
+### Lecture 84 - OpenAI Gym Setup
+
+* Recommended Environemnt
+	* text editor(subl, atom)
+	* IDE - Pycharm
+* code out .py scripts in editor
+* execute code in command line
+* many possible plugins for python
+* openai gym draws a lot of 2d drawings and environment that jupyter has problem to render. so vanilla python for this
+* technically openai works with jupyter, but multiple renderings can cause freezing
+* we use sublime+terminal (no atom) for SPEED
+* in our tensorflow conda environment we install gym (pip install gym)
+* we make a new py file (mytestgym.py) and in it we write
+```
+import gym
+print('It works!')
+```
+* this is to check openai gym installation. we run `python mytestgym.py` in terminal. gym is succesfully installed
+
+### Lecture 85 - OpenAI Gym Env Basics
+
+* we will see how to createan OpenAI gym environment (cartpole). its one of the simplest without the need to install addtional libs
+* the goal of cartpole environment is to balance the pole on the cart when cart moves left or right
+* actions allow us to move the cart left and right to attempt to balance the pole (0:Left,1:Right)
+* the environment is a numpy array with 4 floating point nums (!?!?!). although rendering seems nice and complex the actual model is simple. [HorizontalPosition,HorizontalVelocity,Angle of Pole, Angular Velocity] we grab these vars from the environment and use them in our agent
+* we ll create our environment (in mytestgym.py)
+* we import gym `import gym`
+* we use gyms .make() to create the environment `env = gym.make('CartPole-v0')` passing teh name of it. in this env we dont need to pass in addtional libs
+* we then have to reset the environment to its default state (0 location) `env.reset()`
+* we create a steps loop in which we render the environment and set the step by passing in an env. action_space.sample(). what this is it tells the env to take a random action from actions available to us and pass it to the environment. the result of it is to see a random movement on the cart-pole combination (4 vars)
+for t in range(1000):
+	env.render()
+	env.step(env.action_space.sample())
+```
+* we save and run (we expect a erratic random behaviour). indeed the cart goes off screen :)
+
+### Lecture 86 - Open AI Gym Observations
+
 * 
